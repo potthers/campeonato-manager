@@ -39,13 +39,14 @@ function showAuthMode(mode){
   $("#authMessage").classList.add("hidden");
 }
 function showAuth(){ $("#authView").classList.remove("hidden"); $("#appShell").classList.add("hidden"); }
-function showApp(user){
+async function showApp(user){
   $("#authView").classList.add("hidden");
   $("#appShell").classList.remove("hidden");
   $("#userEmail").textContent=user?.email||"";
   $("#pageTitle").textContent="Meus campeonatos";
   show("home");
   home();
+  await loadAdmin(user);
 }
 async function login(email,password){
   setAuthMessage("Entrando...","info");
@@ -60,6 +61,100 @@ async function signup(email,password){
   if(data.session){showApp(data.user);}
   else{setAuthMessage("Conta criada! Verifique seu e-mail para confirmar a conta e depois entre no Global Football Sim.","success");}
 }
+
+async function loadAdmin(user){
+  const nav=$("#adminNav");
+  if(!nav||!user)return;
+  const {data,error}=await supabaseClient.from("profiles").select("role").eq("id",user.id).maybeSingle();
+  const isAdmin=!error&&data?.role==="admin";
+  nav.classList.toggle("hidden",!isAdmin);
+  if(isAdmin) await refreshAdmin();
+}
+
+function adminMessage(message,type="success"){
+  const el=$("#adminMessage");
+  if(!el)return;
+  el.textContent=message;
+  el.className="admin-message "+type;
+  setTimeout(()=>el.classList.add("hidden"),3500);
+}
+
+function optionRows(items,placeholder="Selecione..."){
+  return '<option value="">'+placeholder+'</option>'+items.map(x=>'<option value="'+x.id+'">'+esc(x.name)+'</option>').join("");
+}
+
+async function refreshAdmin(){
+  const [countries,competitions,clubs,players]=await Promise.all([
+    supabaseClient.from("countries").select("*").order("name"),
+    supabaseClient.from("competitions").select("*, countries(name)").order("name"),
+    supabaseClient.from("clubs").select("*, countries(name)").order("name"),
+    supabaseClient.from("players").select("*, countries!players_nationality_country_id_fkey(name)").order("name")
+  ]);
+  if(countries.error||competitions.error||clubs.error||players.error){
+    adminMessage("Não foi possível carregar os dados administrativos.","error");
+    return;
+  }
+  const cs=countries.data||[];
+  const comps=competitions.data||[];
+  const cls=clubs.data||[];
+  const ps=players.data||[];
+  $("#countriesList").innerHTML=cs.length?cs.map(x=>'<div class="admin-item"><div class="admin-item-main"><div class="admin-item-name">'+esc(x.name)+'</div><div class="admin-item-meta">'+esc(x.code||"Sem código")+'</div></div><button class="admin-delete" data-delete-country="'+x.id+'">Excluir</button></div>').join(""):'<div class="empty-small">Nenhum país cadastrado.</div>';
+  $("#competitionsList").innerHTML=comps.length?comps.map(x=>'<div class="admin-item"><div class="admin-item-main"><div class="admin-item-name">'+esc(x.name)+'</div><div class="admin-item-meta">'+esc(x.countries?.name||"Sem país")+' · Divisão '+x.division+'</div></div><button class="admin-delete" data-delete-competition="'+x.id+'">Excluir</button></div>').join(""):'<div class="empty-small">Nenhuma competição cadastrada.</div>';
+  $("#clubsList").innerHTML=cls.length?cls.map(x=>'<div class="admin-item"><div class="admin-item-main"><div class="admin-item-name">'+esc(x.name)+'</div><div class="admin-item-meta">'+esc(x.countries?.name||"Sem país")+' · Força '+x.strength+'</div></div><button class="admin-delete" data-delete-club="'+x.id+'">Excluir</button></div>').join(""):'<div class="empty-small">Nenhum clube cadastrado.</div>';
+  $("#playersList").innerHTML=ps.length?ps.map(x=>'<div class="admin-item"><div class="admin-item-main"><div class="admin-item-name">'+esc(x.name)+'</div><div class="admin-item-meta">'+esc(x.position)+' · OVR '+x.overall+' · POT '+x.potential+'</div></div><button class="admin-delete" data-delete-player="'+x.id+'">Excluir</button></div>').join(""):'<div class="empty-small">Nenhum jogador cadastrado.</div>';
+  $("#competitionCountry").innerHTML=optionRows(cs,"País");
+  $("#clubCountry").innerHTML=optionRows(cs,"País");
+  $("#playerNationality").innerHTML=optionRows(cs,"Nacionalidade");
+  document.querySelectorAll("[data-delete-country]").forEach(b=>b.onclick=()=>deleteAdmin("countries",b.dataset.deleteCountry));
+  document.querySelectorAll("[data-delete-competition]").forEach(b=>b.onclick=()=>deleteAdmin("competitions",b.dataset.deleteCompetition));
+  document.querySelectorAll("[data-delete-club]").forEach(b=>b.onclick=()=>deleteAdmin("clubs",b.dataset.deleteClub));
+  document.querySelectorAll("[data-delete-player]").forEach(b=>b.onclick=()=>deleteAdmin("players",b.dataset.deletePlayer));
+}
+
+async function deleteAdmin(table,id){
+  if(!confirm("Excluir este cadastro? Se ele estiver sendo usado por outro dado, o banco poderá impedir a exclusão."))return;
+  const {error}=await supabaseClient.from(table).delete().eq("id",id);
+  if(error){adminMessage("Não foi possível excluir: "+error.message,"error");return;}
+  adminMessage("Cadastro excluído.");
+  await refreshAdmin();
+}
+
+async function addAdminRow(table,payload){
+  const {error}=await supabaseClient.from(table).insert(payload);
+  if(error){adminMessage("Não foi possível salvar: "+error.message,"error");return false;}
+  adminMessage("Cadastro adicionado.");
+  await refreshAdmin();
+  return true;
+}
+
+function setupAdminForms(){
+  $("#countryForm").onsubmit=async e=>{
+    e.preventDefault();
+    await addAdminRow("countries",{name:$("#countryName").value.trim(),code:$("#countryCode").value.trim().toUpperCase()||null});
+    $("#countryName").value="";$("#countryCode").value="";
+  };
+  $("#competitionForm").onsubmit=async e=>{
+    e.preventDefault();
+    const name=$("#competitionName").value.trim(),country=$("#competitionCountry").value;
+    if(!country){adminMessage("Selecione o país da competição.","error");return;}
+    const ok=await addAdminRow("competitions",{name,country_id:Number(country),division:Number($("#competitionDivision").value)||1});
+    if(ok)$("#competitionName").value="";
+  };
+  $("#clubForm").onsubmit=async e=>{
+    e.preventDefault();
+    const name=$("#clubName").value.trim(),country=$("#clubCountry").value;
+    if(!country){adminMessage("Selecione o país do clube.","error");return;}
+    const ok=await addAdminRow("clubs",{name,short_name:$("#clubShortName").value.trim()||null,country_id:Number(country),strength:Number($("#clubStrength").value)||50,reputation:Number($("#clubStrength").value)||50,budget:Number($("#clubBudget").value)||0});
+    if(ok){$("#clubName").value="";$("#clubShortName").value="";}
+  };
+  $("#playerForm").onsubmit=async e=>{
+    e.preventDefault();
+    const name=$("#playerName").value.trim(),nationality=$("#playerNationality").value;
+    const ok=await addAdminRow("players",{name,nationality_country_id:nationality?Number(nationality):null,position:$("#playerPosition").value,overall:Number($("#playerOverall").value)||50,potential:Number($("#playerPotential").value)||50});
+    if(ok)$("#playerName").value="";
+  };
+}
+
 
 document.addEventListener("DOMContentLoaded",async()=>{
   showAuthMode("login");
@@ -82,6 +177,7 @@ document.addEventListener("DOMContentLoaded",async()=>{
   };
 
   $("#logoutBtn").onclick=async()=>{await supabaseClient.auth.signOut();currentId=null;showAuthMode("login");showAuth();};
+  setupAdminForms();
 
   supabaseClient.auth.onAuthStateChange((event,session)=>{
     if(session) showApp(session.user);
