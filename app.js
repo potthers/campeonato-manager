@@ -132,6 +132,139 @@ async function fetchApiFootballSquad(clubId,key){
   const data=await apiFootball("/players/squads?team="+clubId,key);
   return data?.response?.[0]?.players||[];
 }
+
+function numberValue(value){
+  const n=Number(value);
+  return Number.isFinite(n)?n:0;
+}
+function clampRating(value,min=1,max=99){
+  return Math.max(min,Math.min(max,Math.round(value)));
+}
+function getCurrentSeason(){
+  return new Date().getFullYear();
+}
+function playerStatBlock(player){
+  const stats=player?.statistics||[];
+  if(!stats.length)return null;
+  const preferred=stats.find(s=>s?.team?.id&&s?.games)||stats[0];
+  return preferred||null;
+}
+function sumPlayerStats(player){
+  const stats=player?.statistics||[];
+  const total={
+    appearances:0,starts:0,minutes:0,goals:0,assists:0,shots:0,shotsOn:0,
+    passes:0,keyPasses:0,passAccuracy:0,tackles:0,interceptions:0,duels:0,
+    duelsWon:0,dribbles:0,dribblesSuccess:0,clearances:0,blocks:0,
+    saves:0,goalsConceded:0,yellow:0,red:0,ratings:[],ratingCount:0
+  };
+  stats.forEach(s=>{
+    const g=s?.games||{},go=s?.goals||{},sh=s?.shots||{},pa=s?.passes||{},ta=s?.tackles||{},du=s?.duels||{},dr=s?.dribbles||{},ca=s?.cards||{};
+    total.appearances+=numberValue(g.appearences);
+    total.starts+=numberValue(g.lineups);
+    total.minutes+=numberValue(g.minutes);
+    total.goals+=numberValue(go.total);
+    total.assists+=numberValue(go.assists);
+    total.shots+=numberValue(sh.total);
+    total.shotsOn+=numberValue(sh.on);
+    total.passes+=numberValue(pa.total);
+    total.keyPasses+=numberValue(pa.key);
+    total.passAccuracy+=numberValue(pa.accuracy);
+    total.tackles+=numberValue(ta.total);
+    total.interceptions+=numberValue(ta.interceptions);
+    total.duels+=numberValue(du.total);
+    total.duelsWon+=numberValue(du.won);
+    total.dribbles+=numberValue(dr.attempts);
+    total.dribblesSuccess+=numberValue(dr.success);
+    total.clearances+=numberValue(ta.clearances);
+    total.blocks+=numberValue(ta.blocks);
+    total.saves+=numberValue(g.saves);
+    total.goalsConceded+=numberValue(go.conceded);
+    total.yellow+=numberValue(ca.yellow);
+    total.red+=numberValue(ca.red);
+    const rating=Number(g.rating);
+    if(Number.isFinite(rating)){total.ratings.push(rating);total.ratingCount++;}
+  });
+  total.rating=total.ratings.length?total.ratings.reduce((a,b)=>a+b,0)/total.ratings.length:0;
+  total.passAccuracy=stats.length?total.passAccuracy/stats.length:0;
+  return total;
+}
+async function fetchApiFootballPlayerStats(teamId,key,season=getCurrentSeason()){
+  let page=1;
+  const players=[];
+  while(page<=5){
+    const data=await apiFootball("/players?team="+teamId+"&season="+season+"&page="+page,key);
+    players.push(...(data?.response||[]));
+    const totalPages=Number(data?.paging?.total||1);
+    if(page>=totalPages)break;
+    page++;
+  }
+  return players;
+}
+function calculateAutomaticRatings(player,stats){
+  const age=numberValue(player?.age);
+  const position=mapApiPosition(player?.position);
+  const s=stats||{};
+  const apps=numberValue(s.appearances);
+  const minutes=numberValue(s.minutes);
+  const rating=s.rating||0;
+  const reliability=Math.min(1,minutes/1800);
+  let performance=rating?((rating-5.8)/1.8)*18:0;
+
+  let roleScore=0;
+  if(position==="GK"){
+    roleScore += Math.min(12,s.saves*0.08);
+    roleScore -= Math.min(8,s.goalsConceded*0.04);
+  }else if(position==="DEF"){
+    roleScore += Math.min(10,s.tackles*0.16);
+    roleScore += Math.min(8,s.interceptions*0.12);
+    roleScore += Math.min(5,s.clearances*0.035);
+    roleScore += Math.min(4,s.blocks*0.12);
+    roleScore += Math.min(7,s.goals*0.9);
+    roleScore += Math.min(6,s.assists*0.8);
+  }else if(position==="MID"){
+    roleScore += Math.min(9,s.keyPasses*0.12);
+    roleScore += Math.min(8,s.assists*1.4);
+    roleScore += Math.min(10,s.goals*0.9);
+    roleScore += Math.min(6,s.dribblesSuccess*0.08);
+    roleScore += Math.min(6,s.tackles*0.08);
+  }else{
+    roleScore += Math.min(14,s.goals*0.9);
+    roleScore += Math.min(10,s.assists*1.3);
+    roleScore += Math.min(7,s.shotsOn*0.12);
+    roleScore += Math.min(5,s.dribblesSuccess*0.07);
+  }
+
+  const base=62+(reliability*6)+performance+roleScore;
+  const sampleBonus=Math.min(4,apps/10);
+  const rawOvr=base+sampleBonus;
+  const ovr=clampRating(rawOvr,55,94);
+
+  let ageFactor=0;
+  if(age>=17&&age<=20)ageFactor=10;
+  else if(age<=23)ageFactor=7;
+  else if(age<=26)ageFactor=4;
+  else if(age<=29)ageFactor=2;
+  else if(age<=32)ageFactor=0;
+  else ageFactor=-2;
+
+  const performancePotential=rating?Math.max(-2,Math.min(3,(rating-7)*1.5)):0;
+  const pot=clampRating(Math.max(ovr,ovr+ageFactor+performancePotential),ovr,99);
+  return {overall:ovr,potential:pot,statsUsed:Boolean(stats)};
+}
+function applyAutomaticRatings(roster,statPlayers){
+  const byId={};
+  const byName={};
+  (statPlayers||[]).forEach(p=>{
+    if(p?.player?.id)byId[p.player.id]=p;
+    if(p?.player?.name)byName[normalizeName(p.player.name)]=p;
+  });
+  return roster.map(p=>{
+    const detailed=byId[p.id]||byName[normalizeName(p.name)];
+    const stats=sumPlayerStats(detailed);
+    const ratings=calculateAutomaticRatings({...p,age:detailed?.player?.age||p.age},stats);
+    return {...p,...ratings,age:detailed?.player?.age||p.age||null};
+  });
+}
 function renderRosterPreview(){
   const wrap=$("#rosterImportRows");
   wrap.innerHTML=rosterPreview.map((p,i)=>'<tr><td><strong>'+esc(p.name)+'</strong></td><td><select class="roster-pos" data-roster-index="'+i+'"><option value="GK"'+(p.position==="GK"?" selected":"")+'>GOL</option><option value="DEF"'+(p.position==="DEF"?" selected":"")+'>DEF</option><option value="MID"'+(p.position==="MID"?" selected":"")+'>MEI</option><option value="FWD"'+(p.position==="FWD"?" selected":"")+'>ATA</option></select></td><td>'+(p.number??"-")+'</td><td><input class="roster-ovr" data-roster-index="'+i+'" type="number" min="1" max="100" value="'+p.overall+'"></td><td><input class="roster-pot" data-roster-index="'+i+'" type="number" min="1" max="100" value="'+p.potential+'"></td></tr>').join("");
@@ -167,10 +300,19 @@ async function searchRosterFromApi(){
     rosterImportMessage("Etapa 4/5: clube encontrado — "+(team.name||clubName)+" (ID "+team.id+"). Buscando elenco...","info");
     const players=await fetchApiFootballSquad(team.id,key);
     if(!players.length)throw new Error("A API encontrou o clube, mas não retornou jogadores no elenco atual.");
+    rosterImportMessage("Etapa 5/6: calculando OVR e POT automaticamente com os dados de desempenho da temporada...","info");
+    let detailedPlayers=[];
+    try{
+      detailedPlayers=await fetchApiFootballPlayerStats(team.id,key,getCurrentSeason());
+    }catch(statsError){
+      console.warn("Não foi possível carregar estatísticas da temporada; usando cálculo de fallback.",statsError);
+    }
     rosterImportApiKey=key;
     rosterPreview=players.map(p=>({apiId:p.id,name:p.name||"Jogador",position:mapApiPosition(p.position),number:p.number,overall:50,potential:50,nationality:p.nationality||null,age:p.age||null,photo:p.photo||null}));
+    rosterPreview=applyAutomaticRatings(rosterPreview,detailedPlayers);
     renderRosterPreview();
-    rosterImportMessage("Etapa 5/5: "+rosterPreview.length+" jogador(es) encontrados para "+(team.name||clubName)+".","success");
+    const statsCount=rosterPreview.filter(p=>p.statsUsed).length;
+    rosterImportMessage("Etapa 6/6: "+rosterPreview.length+" jogador(es) encontrados para "+(team.name||clubName)+". OVR/POT calculados automaticamente ("+statsCount+" com estatísticas da temporada).","success");
   }catch(error){
     rosterImportMessage("Falha durante a importação: "+(error?.message||String(error)),"error");
   }finally{
