@@ -49,3 +49,13 @@
 .secondary:hover{background:#f3f6fa}
 
 .admin-import-card{display:flex;align-items:center;gap:12px;padding:13px;border:1px solid #e2e7eb;border-radius:9px;background:#fafbfc;margin:12px 0}.admin-import-icon{font-size:24px}.admin-full-button{width:100%}.roster-import-grid{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(300px,1fr);gap:18px}.roster-import-grid h3{margin-top:0}.import-source-note{margin-top:16px;padding:12px;border:1px solid #e2e7eb;border-radius:9px;background:#fafbfc;display:grid;gap:5px;font-size:12px;line-height:1.5}.import-source-note span{color:#71808d}.import-steps{display:flex;flex-direction:column;gap:12px}.import-steps div{display:flex;align-items:center;gap:10px;padding:11px;border:1px solid #e2e7eb;border-radius:9px;background:#fafbfc}.import-steps b{width:28px;height:28px;display:grid;place-items:center;border-radius:50%;background:#eef4ff;color:#1769e0}.import-steps span{font-size:13px}@media(max-width:950px){.roster-import-grid{grid-template-columns:1fr}}.roster-import-result{margin-top:18px}.roster-import-result table{min-width:720px}.roster-import-result .table-wrap{overflow:auto}.import-source-note{margin-bottom:14px}.admin-form label{font-size:12px;font-weight:700;color:#4d5b67}.admin-form label input{margin-top:6px}.roster-ovr,.roster-pot{width:70px;padding:7px;border:1px solid #ccd4db;border-radius:7px}.roster-pos{font-weight:700}.import-loading{opacity:.65;pointer-events:none}
+.csv-errors{margin:12px 0;padding:12px;border-radius:9px;background:#fff0f0;color:#a13e3e;font-size:12px;line-height:1.55}
+.csv-row-error{background:#fff8f8}
+.csv-inline-error{display:block;color:#b24a4a;font-size:10px;margin-top:3px}
+.csv-rules{display:grid;gap:7px;margin-top:18px;padding:13px;border:1px solid #e2e7eb;border-radius:9px;background:#fafbfc}
+.csv-rules strong{font-size:12px}
+.csv-rules code{display:block;padding:7px 8px;border-radius:6px;background:#eef2f5;color:#36434f;font-size:11px;overflow:auto}
+#rosterCsvText{width:100%;resize:vertical;min-height:220px;padding:11px;border:1px solid #ccd4db;border-radius:8px;background:#fff;font:12px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace}
+#rosterCsvFile{padding:9px;background:#fff}
+.roster-number,.roster-ovr,.roster-pot{width:70px;padding:7px;border:1px solid #ccd4db;border-radius:7px}
+.roster-pos{min-width:78px;padding:7px;border:1px solid #ccd4db;border-radius:7px;background:#fff;font-weight:700}
