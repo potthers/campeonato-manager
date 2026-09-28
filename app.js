@@ -9,6 +9,7 @@ catch(e){db={championships:[]};localStorage.removeItem(KEY)}
 let currentId=null;
 let currentAdminClubId=null;
 let currentAdminCountryId=null;
+let currentAdminCompetitionId=null;
 let adminCompetitions=[];
 const CONTINENTS=["África","América do Norte","América do Sul","Ásia","Europa","Oceania","Outros"];
 
@@ -153,11 +154,54 @@ async function refreshCountryCompetitions(){
         const format=x.competition_type==="cup"
           ? (x.cup_mode==="double"?"Ida e volta":"Jogo único")
           : (x.round_robin_legs==="double"?"Turno e returno":"Turno único");
-        return '<div class="admin-item"><div class="admin-item-main"><div class="admin-item-name">🏆 '+esc(x.name)+'</div><div class="admin-item-meta">'+type+' · Divisão '+x.division+' · '+(x.team_count||0)+' times · '+format+'</div></div><div class="admin-item-actions"><button class="club-open" data-edit-country-competition="'+x.id+'">Editar</button><button class="admin-delete" data-delete-country-competition="'+x.id+'">Excluir</button></div></div>';
+        return '<div class="admin-item"><div class="admin-item-main"><div class="admin-item-name">🏆 '+esc(x.name)+'</div><div class="admin-item-meta">'+type+' · Divisão '+x.division+' · '+(x.team_count||0)+' times · '+format+'</div></div><div class="admin-item-actions"><button class="club-open" data-open-country-competition="'+x.id+'">Times</button><button class="club-open" data-edit-country-competition="'+x.id+'">Editar</button><button class="admin-delete" data-delete-country-competition="'+x.id+'">Excluir</button></div></div>';
       }).join("")
     : '<div class="empty-small">Nenhuma competição cadastrada neste país.</div>';
   document.querySelectorAll("[data-delete-country-competition]").forEach(b=>b.onclick=()=>deleteCountryCompetition(Number(b.dataset.deleteCountryCompetition)));
   document.querySelectorAll("[data-edit-country-competition]").forEach(b=>b.onclick=()=>editCountryCompetition(Number(b.dataset.editCountryCompetition)));
+  document.querySelectorAll("[data-open-country-competition]").forEach(b=>b.onclick=()=>openAdminCompetition(Number(b.dataset.openCountryCompetition)));
+}
+
+async function openAdminCompetition(id){
+  currentAdminCompetitionId=id;
+  const {data:comp,error}=await supabaseClient.from("competitions").select("*, countries(name,continent)").eq("id",id).single();
+  if(error){adminMessage("Não foi possível abrir a competição: "+error.message,"error");return;}
+  $("#competitionAdminName").textContent="🏆 "+comp.name;
+  $("#competitionAdminEyebrow").textContent=comp.countries?.name||"COMPETIÇÃO";
+  const type=comp.competition_type==="cup"?"Copa":"Liga";
+  const format=comp.competition_type==="cup"?(comp.cup_mode==="double"?"Ida e volta":"Jogo único"):(comp.round_robin_legs==="double"?"Turno e returno":"Turno único");
+  $("#competitionAdminMeta").textContent=type+" · Divisão "+comp.division+" · "+comp.team_count+" times · "+format;
+  await refreshCompetitionTeams();
+  show("competitionAdmin");
+  $("#pageTitle").textContent=comp.name;
+}
+
+async function refreshCompetitionTeams(){
+  if(!currentAdminCompetitionId)return;
+  const {data:comp,error:compError}=await supabaseClient.from("competitions").select("id,country_id,team_count").eq("id",currentAdminCompetitionId).single();
+  if(compError)return;
+  const {data:links,error:linksError}=await supabaseClient.from("competition_clubs").select("id,club_id,clubs(id,name,short_name,strength,country_id)").eq("competition_id",currentAdminCompetitionId).order("id");
+  if(linksError){adminMessage("Não foi possível carregar os times: "+linksError.message,"error");return;}
+  const teams=links||[];
+  const {data:clubs,error:clubsError}=await supabaseClient.from("clubs").select("id,name,short_name,strength,country_id").eq("country_id",comp.country_id).order("name");
+  if(clubsError){adminMessage("Não foi possível carregar os clubes: "+clubsError.message,"error");return;}
+  const used=new Set(teams.map(x=>x.club_id));
+  const available=(clubs||[]).filter(x=>!used.has(x.id));
+  $("#competitionTeamClub").innerHTML='<option value="">Selecione o time</option>'+available.map(x=>'<option value="'+x.id+'">'+esc(x.name)+(x.short_name?' ('+esc(x.short_name)+')':'')+'</option>').join("");
+  $("#competitionTeamClub").disabled=teams.length>=Number(comp.team_count||0);
+  $("#competitionTeamForm button").disabled=teams.length>=Number(comp.team_count||0);
+  $("#competitionTeamsCount").textContent=teams.length+" / "+comp.team_count+" times";
+  $("#competitionTeamsList").innerHTML=teams.length?teams.map(x=>'<div class="admin-item"><div class="admin-item-main"><div class="admin-item-name">⚽ '+esc(x.clubs?.name||"Time")+'</div><div class="admin-item-meta">Força '+(x.clubs?.strength??"-")+(x.clubs?.short_name?' · '+esc(x.clubs.short_name):"")+'</div></div><button class="admin-delete" data-remove-competition-team="'+x.id+'">Retirar</button></div>').join(""):'<div class="empty-small">Nenhum time cadastrado nesta competição.</div>';
+  document.querySelectorAll("[data-remove-competition-team]").forEach(b=>b.onclick=()=>removeCompetitionTeam(Number(b.dataset.removeCompetitionTeam)));
+}
+
+async function removeCompetitionTeam(linkId){
+  if(!confirm("Retirar este time da competição?"))return;
+  const {error}=await supabaseClient.from("competition_clubs").delete().eq("id",linkId);
+  if(error){adminMessage("Não foi possível retirar o time: "+error.message,"error");return;}
+  await refreshCompetitionTeams();
+  await refreshAdmin();
+  adminMessage("Time retirado da competição.");
 }
 
 async function editCountryCompetition(id){
@@ -343,6 +387,27 @@ function setupAdminForms(){
     await refreshCountryCompetitions();
     await refreshAdmin();
     adminMessage("Competição adicionada ao país.");
+  };
+  $("#competitionTeamForm").onsubmit=async e=>{
+    e.preventDefault();
+    if(!currentAdminCompetitionId)return;
+    const clubId=Number($("#competitionTeamClub").value);
+    if(!clubId)return;
+    const {data:comp,error:compError}=await supabaseClient.from("competitions").select("team_count,country_id").eq("id",currentAdminCompetitionId).single();
+    if(compError){adminMessage("Não foi possível verificar a competição: "+compError.message,"error");return;}
+    const {count,error:countError}=await supabaseClient.from("competition_clubs").select("*",{count:"exact",head:true}).eq("competition_id",currentAdminCompetitionId);
+    if(countError){adminMessage("Não foi possível verificar os times: "+countError.message,"error");return;}
+    if((count||0)>=Number(comp.team_count||0)){adminMessage("A competição já atingiu o número máximo de times.","error");return;}
+    const {error}=await supabaseClient.from("competition_clubs").insert({competition_id:currentAdminCompetitionId,club_id:clubId});
+    if(error){adminMessage("Não foi possível adicionar o time: "+error.message,"error");return;}
+    await refreshCompetitionTeams();
+    await refreshAdmin();
+    adminMessage("Time adicionado à competição.");
+  };
+  $("#backCountryFromCompetition").onclick=async()=>{
+    show("countryAdmin");
+    $("#pageTitle").textContent=$("#countryAdminName").textContent.replace(/^\S+\s/,"");
+    await refreshCountryCompetitions();
   };
   $("#backCountries").onclick=async()=>{
     show("admin");
