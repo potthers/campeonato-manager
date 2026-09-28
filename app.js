@@ -16,7 +16,7 @@ const $=s=>document.querySelector(s);
 const save=()=>localStorage.setItem(KEY,JSON.stringify(db));
 const cur=()=>db.championships.find(c=>c.id===currentId);
 
-function show(v){document.querySelectorAll(".view").forEach(x=>x.classList.add("hidden"));$("#"+v+"View").classList.remove("hidden");}
+function show(v){document.querySelectorAll(".view").forEach(x=>x.classList.add("hidden"));const el=$("#"+v+"View");if(el)el.classList.remove("hidden");else console.error("Tela não encontrada:",v);}
 function home(){const g=$("#championshipGrid");g.innerHTML="";$("#empty").classList.toggle("hidden",db.championships.length>0);db.championships.forEach(c=>{let d=document.createElement("div");d.className="champ-card";d.innerHTML="<span class=\"badge\">"+(c.division||"Campeonato")+"</span><h3>"+esc(c.name)+"</h3><div class=\"muted\">"+c.teams.length+" times · "+c.matches.length+" jogos</div>";d.onclick=()=>openChamp(c.id);g.appendChild(d)})}
 function openChamp(id){currentId=id;let c=cur();$("#champName").textContent=c.name;$("#champEyebrow").textContent=c.division||"CAMPEONATO";$("#pageTitle").textContent=c.name;show("champ");render();tab("table")}
 function render(){let c=cur();$("#teamCount").textContent=c.teams.length;$("#tableInfo").textContent=c.teams.length+" times · "+c.matches.length+" jogos";standings();matches();teams()}
@@ -129,14 +129,20 @@ async function refreshAdmin(){
   document.querySelectorAll("[data-open-club]").forEach(b=>b.onclick=()=>openAdminClub(Number(b.dataset.openClub)));
 }
 async function openAdminCountry(id){
-  const {data:country,error}=await supabaseClient.from("countries").select("*").eq("id",id).single();
-  if(error){adminMessage("Não foi possível abrir o país.","error");return;}
   currentAdminCountryId=id;
+  show("countryAdmin");
+  $("#pageTitle").textContent="País";
+  $("#countryAdminName").textContent="Carregando...";
+  $("#countryAdminEyebrow").textContent="PAÍS";
+  const {data:country,error}=await supabaseClient.from("countries").select("*").eq("id",id).single();
+  if(error){
+    adminMessage("Não foi possível abrir o país: "+error.message,"error");
+    return;
+  }
   $("#countryAdminName").textContent=(country.flag||"🌍")+" "+country.name;
   $("#countryAdminEyebrow").textContent=country.continent||"PAÍS";
-  await refreshCountryCompetitions();
-  show("countryAdmin");
   $("#pageTitle").textContent=country.name;
+  await refreshCountryCompetitions();
 }
 
 async function refreshCountryCompetitions(){
@@ -310,6 +316,11 @@ function setupAdminForms(){
 }
 
 
+
+document.addEventListener("click",e=>{
+  const b=e.target.closest("[data-open-country]");
+  if(b){e.preventDefault();openAdminCountry(Number(b.dataset.openCountry));}
+});
 
 document.addEventListener("DOMContentLoaded",async()=>{
   showAuthMode("login");
