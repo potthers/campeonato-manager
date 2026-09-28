@@ -76,6 +76,29 @@ async function loadAdmin(user){
   if(isAdmin) await refreshAdmin();
 }
 
+
+function openRosterImporter(){
+  const select=$("#rosterImportCompetition");
+  select.innerHTML='<option value="">Selecione a competição</option>'+adminCompetitions.map(x=>'<option value="'+x.id+'">'+esc(x.name)+(x.countries?.name?' · '+esc(x.countries.name):'')+'</option>').join("");
+  $("#rosterImportClub").innerHTML='<option value="">Selecione o clube</option>';
+  $("#rosterImportClub").disabled=true;
+  show("rosterImporter");
+  $("#pageTitle").textContent="Importar elenco";
+}
+async function loadRosterImportClubs(competitionId){
+  const clubSelect=$("#rosterImportClub");
+  clubSelect.innerHTML='<option value="">Carregando clubes...</option>';
+  clubSelect.disabled=true;
+  if(!competitionId){
+    clubSelect.innerHTML='<option value="">Selecione o clube</option>';
+    return;
+  }
+  const {data:links,error}=await supabaseClient.from("competition_clubs").select("club_id,clubs(id,name,short_name)").eq("competition_id",Number(competitionId)).order("id");
+  if(error){adminMessage("Não foi possível carregar os clubes: "+error.message,"error");clubSelect.innerHTML='<option value="">Selecione o clube</option>';return;}
+  clubSelect.innerHTML='<option value="">Selecione o clube</option>'+(links||[]).map(x=>'<option value="'+x.clubs.id+'">'+esc(x.clubs.name)+(x.clubs.short_name?' ('+esc(x.clubs.short_name)+')':'')+'</option>').join("");
+  clubSelect.disabled=!(links||[]).length;
+}
+
 function adminMessage(message,type="success"){
   const el=$("#adminMessage");
   if(!el)return;
@@ -424,6 +447,18 @@ function setupAdminForms(){
     adminMessage("Competição adicionada ao país.");
   };
   $("#addAllCompetitionTeams").onclick=addAllCompetitionTeams;
+
+  $("#openRosterImporter").onclick=openRosterImporter;
+  $("#rosterImportCompetition").onchange=e=>loadRosterImportClubs(e.target.value);
+  $("#backAdminFromRosterImporter").onclick=async()=>{show("admin");$("#pageTitle").textContent="Meus campeonatos";await refreshAdmin();};
+  $("#rosterImportForm").onsubmit=e=>{
+    e.preventDefault();
+    const clubId=Number($("#rosterImportClub").value);
+    if(!clubId)return;
+    currentAdminClubId=clubId;
+    openAdminClub(clubId);
+  };
+
   $("#competitionTeamForm").onsubmit=async e=>{
     e.preventDefault();
     if(!currentAdminCompetitionId)return;
