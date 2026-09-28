@@ -4,28 +4,73 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Global Football Sim</title>
-<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="style.css?v=0.1.0">
 </head>
 <body>
-<div class="app">
+
+<section id="authView" class="auth-screen">
+  <div class="auth-card">
+    <div class="auth-brand">⚽ <span>Global Football<br>Sim</span></div>
+    <div class="auth-copy">
+      <div class="eyebrow">SUA CARREIRA DE FUTEBOL</div>
+      <h1 id="authTitle">Entrar na conta</h1>
+      <p id="authSubtitle" class="muted">Entre para acessar seus campeonatos e continuar sua carreira.</p>
+    </div>
+
+    <form id="loginForm" class="auth-form">
+      <label>E-mail<input id="loginEmail" type="email" autocomplete="email" placeholder="seu@email.com" required></label>
+      <label>Senha<input id="loginPassword" type="password" autocomplete="current-password" placeholder="Sua senha" required></label>
+      <button class="primary auth-submit" type="submit">Entrar</button>
+    </form>
+
+    <form id="signupForm" class="auth-form hidden">
+      <label>E-mail<input id="signupEmail" type="email" autocomplete="email" placeholder="seu@email.com" required></label>
+      <label>Senha<input id="signupPassword" type="password" autocomplete="new-password" placeholder="Mínimo de 6 caracteres" minlength="6" required></label>
+      <label>Confirmar senha<input id="signupPassword2" type="password" autocomplete="new-password" placeholder="Digite a senha novamente" minlength="6" required></label>
+      <button class="primary auth-submit" type="submit">Criar conta</button>
+    </form>
+
+    <div id="authMessage" class="auth-message hidden"></div>
+
+    <div class="auth-switch">
+      <span id="authSwitchText">Ainda não tem uma conta?</span>
+      <button id="authSwitch" type="button">Criar conta</button>
+    </div>
+  </div>
+</section>
+
+<div id="appShell" class="app hidden">
   <aside class="sidebar">
     <div class="brand">⚽ <span>Global Football<br>Sim</span></div>
     <button class="nav active" data-view="home">🏠 Campeonatos</button>
     <button class="nav" data-view="create">＋ Criar campeonato</button>
-    <div class="side-note">Versão 0.0.2<br>Dados salvos neste navegador.</div>
+    <div class="side-note">Versão 0.1.0<br>Conta conectada ao Supabase.</div>
   </aside>
+
   <main>
-    <header><div><div class="eyebrow">PAINEL ADMINISTRATIVO</div><h1 id="pageTitle">Meus campeonatos</h1></div><button class="primary" id="headerCreate">＋ Novo campeonato</button></header>
+    <header>
+      <div>
+        <div class="eyebrow">PAINEL ADMINISTRATIVO</div>
+        <h1 id="pageTitle">Meus campeonatos</h1>
+      </div>
+      <div class="header-right">
+        <div class="account-box"><span id="userEmail"></span><button class="secondary" id="logoutBtn">Sair</button></div>
+        <button class="primary" id="headerCreate">＋ Novo campeonato</button>
+      </div>
+    </header>
+
     <section id="homeView" class="view">
       <div id="empty" class="empty"><div class="empty-icon">🏆</div><h2>Nenhum campeonato criado</h2><p>Crie sua primeira competição para começar a cadastrar times e resultados.</p><button class="primary" id="emptyCreate">Criar campeonato</button></div>
       <div id="championshipGrid" class="grid"></div>
     </section>
+
     <section id="createView" class="view hidden"><div class="card form-card"><h2>Novo campeonato</h2><p class="muted">Configure a competição. Depois você poderá cadastrar os clubes e gerar as rodadas.</p>
       <label>Nome do campeonato<input id="name" placeholder="Ex.: Campeonato Brasileiro"></label>
       <label>Divisão (opcional)<input id="division" placeholder="Ex.: Série A"></label>
       <label>Formato<select id="format"><option value="double">Turno e returno</option><option value="single">Turno único</option></select></label>
       <div class="form-actions"><button class="secondary" id="cancelCreate">Cancelar</button><button class="primary" id="saveChampionship">Criar campeonato</button></div>
     </div></section>
+
     <section id="champView" class="view hidden">
       <div class="champ-head"><button class="back" id="backHome">← Campeonatos</button><div><div class="eyebrow" id="champEyebrow"></div><h2 id="champName"></h2></div><button class="danger ghost" id="deleteChamp">Excluir</button></div>
       <div class="tabs"><button class="tab active" data-tab="table">Classificação</button><button class="tab" data-tab="matches">Resultados</button><button class="tab" data-tab="teams">Times</button></div>
@@ -35,6 +80,8 @@
     </section>
   </main>
 </div>
-<script src="app.js?v=0.0.2"></script>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="app.js?v=0.1.0"></script>
 </body>
 </html>
