@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Global Football Sim</title>
-<link rel="stylesheet" href="style.css?v=0.1.1">
+<link rel="stylesheet" href="style.css?v=0.1.2">
 </head>
 <body>
 
@@ -45,7 +45,7 @@
     <button class="nav active" data-view="home">🏠 Campeonatos</button>
     <button class="nav" data-view="create">＋ Criar campeonato</button>
     <button class="nav hidden" id="adminNav" data-view="admin">⚙️ Administração</button>
-    <div class="side-note">Versão 0.1.1<br>Conta conectada ao Supabase.</div>
+    <div class="side-note">Versão 0.1.2<br>Conta conectada ao Supabase.</div>
   </aside>
 
   <main>
@@ -86,14 +86,22 @@
       <div class="admin-grid">
         <div class="card admin-card"><h3>🌎 Países</h3><form id="countryForm" class="admin-form"><input id="countryName" placeholder="Nome do país" required><input id="countryCode" placeholder="Código (ex.: BR)" maxlength="3"><button class="primary" type="submit">Adicionar país</button></form><div id="countriesList" class="admin-list"></div></div>
         <div class="card admin-card"><h3>🏆 Competições</h3><form id="competitionForm" class="admin-form"><input id="competitionName" placeholder="Nome da competição" required><select id="competitionCountry"></select><input id="competitionDivision" type="number" min="1" value="1" placeholder="Divisão"><button class="primary" type="submit">Adicionar competição</button></form><div id="competitionsList" class="admin-list"></div></div>
-        <div class="card admin-card"><h3>⚽ Clubes</h3><form id="clubForm" class="admin-form"><input id="clubName" placeholder="Nome do clube" required><input id="clubShortName" placeholder="Nome curto"><select id="clubCountry"></select><input id="clubStrength" type="number" min="1" max="100" value="50" placeholder="Força"><input id="clubBudget" type="number" min="0" value="0" placeholder="Orçamento"><button class="primary" type="submit">Adicionar clube</button></form><div id="clubsList" class="admin-list"></div></div>
-        <div class="card admin-card"><h3>👤 Jogadores</h3><form id="playerForm" class="admin-form"><input id="playerName" placeholder="Nome do jogador" required><select id="playerNationality"></select><select id="playerPosition"><option value="GK">Goleiro</option><option value="DEF">Defensor</option><option value="MID" selected>Meio-campista</option><option value="FWD">Atacante</option></select><input id="playerOverall" type="number" min="1" max="100" value="50" placeholder="Overall"><input id="playerPotential" type="number" min="1" max="100" value="50" placeholder="Potencial"><button class="primary" type="submit">Adicionar jogador</button></form><div id="playersList" class="admin-list"></div></div>
+        <div class="card admin-card"><h3>⚽ Clubes</h3><p class="muted">Escolha a competição e cadastre o clube. Depois entre nele para montar o elenco.</p><form id="clubForm" class="admin-form"><input id="clubName" placeholder="Nome do clube" required><input id="clubShortName" placeholder="Nome curto"><select id="clubCompetition" required></select><input id="clubStrength" type="number" min="1" max="100" value="50" placeholder="Força"><input id="clubBudget" type="number" min="0" value="0" placeholder="Orçamento"><button class="primary" type="submit">Adicionar clube</button></form><div id="clubsList" class="admin-list"></div></div>
+        <div class="card admin-card"><h3>ℹ️ Como funciona</h3><p class="muted">O jogador agora é cadastrado diretamente dentro do clube. Assim o caminho fica:</p><div class="hierarchy"><div>🌎 País</div><span>↓</span><div>🏆 Competição</div><span>↓</span><div>⚽ Clube</div><span>↓</span><div>👥 Elenco</div></div></div>
+      </div>
+    </section>
+
+    <section id="clubAdminView" class="view hidden">
+      <div class="champ-head"><button class="back" id="backAdmin">← Administração</button><div><div class="eyebrow" id="clubAdminEyebrow"></div><h2 id="clubAdminName"></h2><div class="muted" id="clubAdminMeta"></div></div></div>
+      <div class="club-admin-grid">
+        <div class="card"><div class="toolbar"><div><h3>👥 Elenco</h3><div class="muted">Adicione vários jogadores de uma vez.</div></div><button class="secondary" id="addPlayerRow">＋ Jogador</button></div><div id="squadRows" class="squad-rows"></div><div class="form-actions"><button class="primary" id="saveSquad">💾 Salvar elenco</button></div></div>
+        <div class="card"><h3>📋 Jogadores do clube</h3><div id="squadList" class="squad-list"></div></div>
       </div>
     </section>
   </main>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="app.js?v=0.1.1"></script>
+<script src="app.js?v=0.1.2"></script>
 </body>
 </html>
