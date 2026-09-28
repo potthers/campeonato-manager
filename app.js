@@ -188,11 +188,46 @@ async function refreshCompetitionTeams(){
   const used=new Set(teams.map(x=>x.club_id));
   const available=(clubs||[]).filter(x=>!used.has(x.id));
   $("#competitionTeamClub").innerHTML='<option value="">Selecione o time</option>'+available.map(x=>'<option value="'+x.id+'">'+esc(x.name)+(x.short_name?' ('+esc(x.short_name)+')':'')+'</option>').join("");
-  $("#competitionTeamClub").disabled=teams.length>=Number(comp.team_count||0);
-  $("#competitionTeamForm button").disabled=teams.length>=Number(comp.team_count||0);
+  const competitionFull=teams.length>=Number(comp.team_count||0);
+  $("#competitionTeamClub").disabled=competitionFull;
+  $("#competitionTeamForm button[type="submit"]").disabled=competitionFull;
+  $("#addAllCompetitionTeams").disabled=competitionFull || available.length===0;
   $("#competitionTeamsCount").textContent=teams.length+" / "+comp.team_count+" times";
   $("#competitionTeamsList").innerHTML=teams.length?teams.map(x=>'<div class="admin-item"><div class="admin-item-main"><div class="admin-item-name">⚽ '+esc(x.clubs?.name||"Time")+'</div><div class="admin-item-meta">Força '+(x.clubs?.strength??"-")+(x.clubs?.short_name?' · '+esc(x.clubs.short_name):"")+'</div></div><button class="admin-delete" data-remove-competition-team="'+x.id+'">Retirar</button></div>').join(""):'<div class="empty-small">Nenhum time cadastrado nesta competição.</div>';
   document.querySelectorAll("[data-remove-competition-team]").forEach(b=>b.onclick=()=>removeCompetitionTeam(Number(b.dataset.removeCompetitionTeam)));
+}
+
+async function addAllCompetitionTeams(){
+  if(!currentAdminCompetitionId)return;
+  const button=$("#addAllCompetitionTeams");
+  button.disabled=true;
+  const {data:comp,error:compError}=await supabaseClient.from("competitions").select("team_count,country_id,name").eq("id",currentAdminCompetitionId).single();
+  if(compError){adminMessage("Não foi possível verificar a competição: "+compError.message,"error");await refreshCompetitionTeams();return;}
+  const {data:links,error:linksError}=await supabaseClient.from("competition_clubs").select("club_id").eq("competition_id",currentAdminCompetitionId);
+  if(linksError){adminMessage("Não foi possível verificar os times: "+linksError.message,"error");await refreshCompetitionTeams();return;}
+  const used=new Set((links||[]).map(x=>x.club_id));
+  const {data:clubs,error:clubsError}=await supabaseClient.from("clubs").select("id,name").eq("country_id",comp.country_id).order("name");
+  if(clubsError){adminMessage("Não foi possível carregar os clubes: "+clubsError.message,"error");await refreshCompetitionTeams();return;}
+  const available=(clubs||[]).filter(x=>!used.has(x.id));
+  const slots=Math.max(0,Number(comp.team_count||0)-(links||[]).length);
+  const toAdd=available.slice(0,slots);
+  if(!toAdd.length){
+    adminMessage((links||[]).length>=Number(comp.team_count||0)?"A competição já atingiu o número máximo de times.":"Não há clubes disponíveis para adicionar.");
+    await refreshCompetitionTeams();
+    return;
+  }
+  const {error}=await supabaseClient.from("competition_clubs").insert(
+    toAdd.map(club=>({competition_id:currentAdminCompetitionId,club_id:club.id}))
+  );
+  if(error){adminMessage("Não foi possível adicionar todos os times: "+error.message,"error");await refreshCompetitionTeams();return;}
+  await refreshCompetitionTeams();
+  await refreshAdmin();
+  const remaining=available.length-toAdd.length;
+  if(remaining>0){
+    adminMessage(toAdd.length+" times adicionados. A competição atingiu o limite de "+comp.team_count+" times; "+remaining+" clube(s) ficaram de fora.");
+  }else{
+    adminMessage(toAdd.length+" times adicionados à competição.");
+  }
 }
 
 async function removeCompetitionTeam(linkId){
@@ -388,6 +423,7 @@ function setupAdminForms(){
     await refreshAdmin();
     adminMessage("Competição adicionada ao país.");
   };
+  $("#addAllCompetitionTeams").onclick=addAllCompetitionTeams;
   $("#competitionTeamForm").onsubmit=async e=>{
     e.preventDefault();
     if(!currentAdminCompetitionId)return;
