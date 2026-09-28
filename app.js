@@ -8,6 +8,7 @@ try{db=JSON.parse(localStorage.getItem(KEY)||"{\"championships\":[]}");if(!db||!
 catch(e){db={championships:[]};localStorage.removeItem(KEY)}
 let currentId=null;
 let currentAdminClubId=null;
+let currentAdminCountryId=null;
 let adminCompetitions=[];
 const CONTINENTS=["África","América do Norte","América do Sul","Ásia","Europa","Oceania","Outros"];
 
@@ -113,7 +114,7 @@ async function refreshAdmin(){
   const continentOrder=[...CONTINENTS,...Object.keys(grouped).filter(x=>!CONTINENTS.includes(x))];
   const countryGroups=continentOrder.filter(x=>grouped[x]?.length).map(cont=>{
     const items=grouped[cont].sort((a,b)=>a.name.localeCompare(b.name,"pt-BR"));
-    return '<details class="continent-group"><summary class="continent-title"><span>🌍 '+esc(cont)+'</span><small>'+items.length+' país(es)</small></summary><div class="continent-countries">'+items.map(x=>'<div class="admin-item"><div class="admin-item-main country-main"><span class="country-flag">'+esc(x.flag||"🏳️")+'</span><div><div class="admin-item-name">'+esc(x.name)+'</div><div class="admin-item-meta">'+esc(x.code||"Sem código")+'</div></div></div><button class="admin-delete" data-delete-country="'+x.id+'">Excluir</button></div>').join("")+'</div></details>';
+    return '<details class="continent-group"><summary class="continent-title"><span>🌍 '+esc(cont)+'</span><small>'+items.length+' país(es)</small></summary><div class="continent-countries">'+items.map(x=>'<button type="button" class="country-open" data-open-country="'+x.id+'"><div class="admin-item-main country-main"><span class="country-flag">'+esc(x.flag||"🏳️")+'</span><div><div class="admin-item-name">'+esc(x.name)+'</div><div class="admin-item-meta">'+esc(x.code||"Sem código")+'</div></div><span class="country-arrow">→</span></button>').join("")+'</div></details>';
   }).join("");
   $("#countriesList").innerHTML=countryGroups||'<div class="empty-small">Nenhum país cadastrado.</div>';
 
@@ -124,11 +125,41 @@ async function refreshAdmin(){
   }).join(""):'<div class="empty-small">Nenhum clube cadastrado.</div>';
   $("#competitionCountry").innerHTML=optionRows(cs,"País");
   $("#clubCompetition").innerHTML=optionRows(comps,"Competição");
-  document.querySelectorAll("[data-delete-country]").forEach(b=>b.onclick=()=>deleteAdmin("countries",b.dataset.deleteCountry));
+  document.querySelectorAll("[data-open-country]").forEach(b=>b.onclick=()=>openAdminCountry(Number(b.dataset.openCountry)));
   document.querySelectorAll("[data-delete-competition]").forEach(b=>b.onclick=()=>deleteAdmin("competitions",b.dataset.deleteCompetition));
   document.querySelectorAll("[data-delete-club]").forEach(b=>b.onclick=()=>deleteAdmin("clubs",b.dataset.deleteClub));
   document.querySelectorAll("[data-open-club]").forEach(b=>b.onclick=()=>openAdminClub(Number(b.dataset.openClub)));
 }
+async function openAdminCountry(id){
+  const {data:country,error}=await supabaseClient.from("countries").select("*").eq("id",id).single();
+  if(error){adminMessage("Não foi possível abrir o país.","error");return;}
+  currentAdminCountryId=id;
+  $("#countryAdminName").textContent=(country.flag||"🌍")+" "+country.name;
+  $("#countryAdminEyebrow").textContent=country.continent||"PAÍS";
+  await refreshCountryCompetitions();
+  show("countryAdmin");
+  $("#pageTitle").textContent=country.name;
+}
+
+async function refreshCountryCompetitions(){
+  if(!currentAdminCountryId)return;
+  const {data,error}=await supabaseClient.from("competitions").select("*").eq("country_id",currentAdminCountryId).order("division").order("name");
+  if(error){adminMessage("Não foi possível carregar as competições.","error");return;}
+  $("#countryCompetitionsList").innerHTML=(data||[]).length
+    ? data.map(x=>'<div class="admin-item"><div class="admin-item-main"><div class="admin-item-name">🏆 '+esc(x.name)+'</div><div class="admin-item-meta">Divisão '+x.division+'</div></div><button class="admin-delete" data-delete-country-competition="'+x.id+'">Excluir</button></div>').join("")
+    : '<div class="empty-small">Nenhuma competição cadastrada neste país.</div>';
+  document.querySelectorAll("[data-delete-country-competition]").forEach(b=>b.onclick=()=>deleteCountryCompetition(Number(b.dataset.deleteCountryCompetition)));
+}
+
+async function deleteCountryCompetition(id){
+  if(!confirm("Excluir esta competição?"))return;
+  const {error}=await supabaseClient.from("competitions").delete().eq("id",id);
+  if(error){adminMessage("Não foi possível excluir: "+error.message,"error");return;}
+  await refreshCountryCompetitions();
+  await refreshAdmin();
+  adminMessage("Competição excluída.");
+}
+
 async function openAdminClub(id){
   currentAdminClubId=id;
   const [{data:club,error:clubError},{data:link,error:linkError},{data:squad,error:squadError}]=await Promise.all([
@@ -261,6 +292,25 @@ function setupAdminForms(){
     }
     adminMessage("Clube adicionado à competição.");
     $("#clubName").value="";$("#clubShortName").value="";
+    await refreshAdmin();
+  };
+  $("#countryCompetitionForm").onsubmit=async e=>{
+    e.preventDefault();
+    if(!currentAdminCountryId)return;
+    const name=$("#countryCompetitionName").value.trim();
+    const division=Number($("#countryCompetitionDivision").value)||1;
+    if(!name)return;
+    const {error}=await supabaseClient.from("competitions").insert({name,country_id:currentAdminCountryId,division});
+    if(error){adminMessage("Não foi possível salvar a competição: "+error.message,"error");return;}
+    $("#countryCompetitionName").value="";
+    $("#countryCompetitionDivision").value="1";
+    await refreshCountryCompetitions();
+    await refreshAdmin();
+    adminMessage("Competição adicionada ao país.");
+  };
+  $("#backCountries").onclick=async()=>{
+    show("admin");
+    $("#pageTitle").textContent="Meus campeonatos";
     await refreshAdmin();
   };
   $("#addPlayerRow").onclick=()=>addSquadRow();
