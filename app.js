@@ -103,7 +103,7 @@ async function loadRosterImportClubs(competitionId){
 
 
 function normalizeName(name){
-  return String(name||"").normalize("NFD").replace(/[\\u0300-\\u036f]/g,"").toLowerCase().replace(/[^a-z0-9]+/g," ").trim();
+  return String(name||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().replace(/[^a-z0-9]+/g," ").trim();
 }
 function mapApiPosition(position){
   const p=String(position||"").toLowerCase();
@@ -143,17 +143,24 @@ function readRosterPreviewEdits(){
   document.querySelectorAll(".roster-ovr").forEach(x=>rosterPreview[Number(x.dataset.rosterIndex)].overall=Math.max(1,Math.min(100,Number(x.value)||50)));
   document.querySelectorAll(".roster-pot").forEach(x=>rosterPreview[Number(x.dataset.rosterIndex)].potential=Math.max(1,Math.min(100,Number(x.value)||50)));
 }
+function rosterImportMessage(message,type="info"){
+  const el=$("#rosterImportMessage");
+  if(!el)return;
+  el.textContent=message;
+  el.className="admin-message "+type;
+  el.classList.remove("hidden");
+}
 async function searchRosterFromApi(){
   const clubId=Number($("#rosterImportClub").value);
   const key=$("#footballApiKey").value.trim();
-  if(!clubId){adminMessage("Selecione o clube.","error");return;}
-  if(!key){adminMessage("Cole a chave da API-Football para buscar o elenco.","error");return;}
-  const clubName=$("#rosterImportClub").selectedOptions[0]?.textContent.replace(/\\s*\\([^)]*\\)\\s*$/,"").trim()||"clube";
+  if(!clubId){rosterImportMessage("Selecione o clube.","error");return;}
+  if(!key){rosterImportMessage("Cole a chave da API-Football para buscar o elenco.","error");return;}
+  const clubName=$("#rosterImportClub").selectedOptions[0]?.textContent.replace(/\s*\([^)]*\)\s*$/,"").trim()||"clube";
   const form=$("#rosterImportForm");
   form.classList.add("import-loading");
   $("#rosterImportResult").classList.add("hidden");
+  rosterImportMessage("Testando a chave e buscando '"+clubName+"' na API-Football...","info");
   try{
-    adminMessage("Buscando '"+clubName+"' na API-Football...","info");
     const team=await findApiFootballTeam(clubName,key);
     if(!team?.id)throw new Error("A API encontrou um resultado sem ID de equipe.");
     const players=await fetchApiFootballSquad(team.id,key);
@@ -161,9 +168,9 @@ async function searchRosterFromApi(){
     rosterImportApiKey=key;
     rosterPreview=players.map(p=>({apiId:p.id,name:p.name||"Jogador",position:mapApiPosition(p.position),number:p.number,overall:50,potential:50,nationality:p.nationality||null,age:p.age||null,photo:p.photo||null}));
     renderRosterPreview();
-    adminMessage(rosterPreview.length+" jogador(es) encontrados para "+(team.name||clubName)+".","success");
+    rosterImportMessage(rosterPreview.length+" jogador(es) encontrados para "+(team.name||clubName)+".","success");
   }catch(error){
-    adminMessage("Não foi possível importar o elenco: "+error.message,"error");
+    rosterImportMessage("Não foi possível buscar o elenco: "+(error?.message||String(error)),"error");
   }finally{
     form.classList.remove("import-loading");
   }
@@ -571,7 +578,7 @@ function setupAdminForms(){
   $("#rosterImportForm").onsubmit=e=>{
     e.preventDefault();
     const clubId=Number($("#rosterImportClub").value);
-    if(!clubId){adminMessage("Selecione o clube.","error");return;}
+    if(!clubId){rosterImportMessage("Selecione o clube.","error");return;}
     currentAdminClubId=clubId;
     searchRosterFromApi();
   };
