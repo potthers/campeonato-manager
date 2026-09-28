@@ -1,6 +1,17 @@
+const SUPABASE_URL="https://kilbtohoqdmesnqozqqv.supabase.co";
+const SUPABASE_PUBLISHABLE_KEY="sb_publishable_jonA24CsFKjANOtOoM-s0g_NK_TNb4d";
+const supabaseClient=window.supabase.createClient(SUPABASE_URL,SUPABASE_PUBLISHABLE_KEY);
+
 const KEY="championship_manager_v1";
-let db;try{db=JSON.parse(localStorage.getItem(KEY)||"{\"championships\":[]}");if(!db||!Array.isArray(db.championships))throw new Error("dados");}catch(e){db={championships:[]};localStorage.removeItem(KEY)}let currentId=null;
-const $=s=>document.querySelector(s);const save=()=>localStorage.setItem(KEY,JSON.stringify(db));const cur=()=>db.championships.find(c=>c.id===currentId);
+let db;
+try{db=JSON.parse(localStorage.getItem(KEY)||"{\"championships\":[]}");if(!db||!Array.isArray(db.championships))throw new Error("dados");}
+catch(e){db={championships:[]};localStorage.removeItem(KEY)}
+let currentId=null;
+
+const $=s=>document.querySelector(s);
+const save=()=>localStorage.setItem(KEY,JSON.stringify(db));
+const cur=()=>db.championships.find(c=>c.id===currentId);
+
 function show(v){document.querySelectorAll(".view").forEach(x=>x.classList.add("hidden"));$("#"+v+"View").classList.remove("hidden");}
 function home(){const g=$("#championshipGrid");g.innerHTML="";$("#empty").classList.toggle("hidden",db.championships.length>0);db.championships.forEach(c=>{let d=document.createElement("div");d.className="champ-card";d.innerHTML="<span class=\"badge\">"+(c.division||"Campeonato")+"</span><h3>"+esc(c.name)+"</h3><div class=\"muted\">"+c.teams.length+" times · "+c.matches.length+" jogos</div>";d.onclick=()=>openChamp(c.id);g.appendChild(d)})}
 function openChamp(id){currentId=id;let c=cur();$("#champName").textContent=c.name;$("#champEyebrow").textContent=c.division||"CAMPEONATO";$("#pageTitle").textContent=c.name;show("champ");render();tab("table")}
@@ -15,4 +26,84 @@ function generate(){let c=cur();if(c.teams.length<2)return alert("Cadastre pelo 
 function saveResults(){let c=cur();document.querySelectorAll(".score").forEach(i=>{let m=c.matches.find(x=>x.id==i.dataset.id);m[i.dataset.side+"Score"]=i.value===""?"":String(Math.max(0,Math.floor(+i.value)))});save();render();alert("Resultados salvos.")}
 function tab(t){document.querySelectorAll(".tab").forEach(b=>b.classList.toggle("active",b.dataset.tab===t));["table","matches","teams"].forEach(x=>$("#"+x+"Tab").classList.toggle("hidden",x!==t))}
 function esc(s){return String(s).replace(/[&<>"]/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[m]))}
-document.addEventListener("DOMContentLoaded",()=>{document.querySelectorAll(".nav").forEach(b=>b.onclick=()=>{show(b.dataset.view);if(b.dataset.view==="home"){$("#pageTitle").textContent="Meus campeonatos";home()}});$("#headerCreate").onclick=()=>show("create");$("#emptyCreate").onclick=()=>show("create");$("#cancelCreate").onclick=()=>{show("home");home()};$("#saveChampionship").onclick=()=>{let n=$("#name").value.trim();if(!n)return alert("Informe o nome.");let c={id:Date.now().toString(),name:n,division:$("#division").value.trim(),format:$("#format").value,teams:[],matches:[]};db.championships.push(c);save();$("#name").value="";$("#division").value="";openChamp(c.id)};$("#backHome").onclick=()=>{show("home");$("#pageTitle").textContent="Meus campeonatos";home()};$("#deleteChamp").onclick=()=>{if(confirm("Excluir este campeonato?")){db.championships=db.championships.filter(c=>c.id!==currentId);save();show("home");home();$("#pageTitle").textContent="Meus campeonatos"}};document.querySelectorAll(".tab").forEach(b=>b.onclick=()=>tab(b.dataset.tab));$("#goMatches").onclick=()=>tab("matches");$("#addTeam").onclick=addTeam;$("#teamName").addEventListener("keydown",e=>{if(e.key==="Enter")addTeam()});$("#generate").onclick=generate;$("#saveResults").onclick=saveResults;home();});
+
+function setAuthMessage(message,type="info"){const el=$("#authMessage");el.textContent=message;el.className="auth-message "+type;}
+function showAuthMode(mode){
+  const login=mode==="login";
+  $("#loginForm").classList.toggle("hidden",!login);
+  $("#signupForm").classList.toggle("hidden",login);
+  $("#authTitle").textContent=login?"Entrar na conta":"Criar sua conta";
+  $("#authSubtitle").textContent=login?"Entre para acessar seus campeonatos e continuar sua carreira.":"Crie sua conta para que suas futuras carreiras possam ficar vinculadas ao seu perfil.";
+  $("#authSwitchText").textContent=login?"Ainda não tem uma conta?":"Já tem uma conta?";
+  $("#authSwitch").textContent=login?"Criar conta":"Entrar";
+  $("#authMessage").classList.add("hidden");
+}
+function showAuth(){ $("#authView").classList.remove("hidden"); $("#appShell").classList.add("hidden"); }
+function showApp(user){
+  $("#authView").classList.add("hidden");
+  $("#appShell").classList.remove("hidden");
+  $("#userEmail").textContent=user?.email||"";
+  $("#pageTitle").textContent="Meus campeonatos";
+  show("home");
+  home();
+}
+async function login(email,password){
+  setAuthMessage("Entrando...","info");
+  const {data,error}=await supabaseClient.auth.signInWithPassword({email,password});
+  if(error){setAuthMessage("Não foi possível entrar. Confira o e-mail e a senha.","error");return;}
+  showApp(data.user);
+}
+async function signup(email,password){
+  setAuthMessage("Criando sua conta...","info");
+  const {data,error}=await supabaseClient.auth.signUp({email,password});
+  if(error){setAuthMessage(error.message||"Não foi possível criar a conta.","error");return;}
+  if(data.session){showApp(data.user);}
+  else{setAuthMessage("Conta criada! Verifique seu e-mail para confirmar a conta e depois entre no Global Football Sim.","success");}
+}
+
+document.addEventListener("DOMContentLoaded",async()=>{
+  showAuthMode("login");
+
+  $("#authSwitch").onclick=()=>showAuthMode($("#loginForm").classList.contains("hidden")?"login":"signup");
+
+  $("#loginForm").onsubmit=async e=>{
+    e.preventDefault();
+    await login($("#loginEmail").value.trim(),$("#loginPassword").value);
+  };
+
+  $("#signupForm").onsubmit=async e=>{
+    e.preventDefault();
+    const email=$("#signupEmail").value.trim();
+    const password=$("#signupPassword").value;
+    const password2=$("#signupPassword2").value;
+    if(password!==password2){setAuthMessage("As senhas não são iguais.","error");return;}
+    if(password.length<6){setAuthMessage("A senha precisa ter pelo menos 6 caracteres.","error");return;}
+    await signup(email,password);
+  };
+
+  $("#logoutBtn").onclick=async()=>{await supabaseClient.auth.signOut();currentId=null;showAuthMode("login");showAuth();};
+
+  supabaseClient.auth.onAuthStateChange((event,session)=>{
+    if(session) showApp(session.user);
+    else if(event==="SIGNED_OUT") showAuth();
+  });
+
+  const {data:{session}}=await supabaseClient.auth.getSession();
+  if(session) showApp(session.user);
+  else showAuth();
+
+  document.querySelectorAll(".nav").forEach(b=>b.onclick=()=>{show(b.dataset.view);if(b.dataset.view==="home"){$("#pageTitle").textContent="Meus campeonatos";home()}});
+  $("#headerCreate").onclick=()=>show("create");
+  $("#emptyCreate").onclick=()=>show("create");
+  $("#cancelCreate").onclick=()=>{show("home");home()};
+  $("#saveChampionship").onclick=()=>{let n=$("#name").value.trim();if(!n)return alert("Informe o nome.");let c={id:Date.now().toString(),name:n,division:$("#division").value.trim(),format:$("#format").value,teams:[],matches:[]};db.championships.push(c);save();$("#name").value="";$("#division").value="";openChamp(c.id)};
+  $("#backHome").onclick=()=>{show("home");$("#pageTitle").textContent="Meus campeonatos";home()};
+  $("#deleteChamp").onclick=()=>{if(confirm("Excluir este campeonato?")){db.championships=db.championships.filter(c=>c.id!==currentId);save();show("home");home();$("#pageTitle").textContent="Meus campeonatos"}};
+  document.querySelectorAll(".tab").forEach(b=>b.onclick=()=>tab(b.dataset.tab));
+  $("#goMatches").onclick=()=>tab("matches");
+  $("#addTeam").onclick=addTeam;
+  $("#teamName").addEventListener("keydown",e=>{if(e.key==="Enter")addTeam()});
+  $("#generate").onclick=generate;
+  $("#saveResults").onclick=saveResults;
+  home();
+});
