@@ -99,6 +99,19 @@
           <form id="countryCompetitionForm" class="admin-form">
             <input id="countryCompetitionName" placeholder="Nome da competição" required>
             <input id="countryCompetitionDivision" type="number" min="1" value="1" placeholder="Divisão">
+            <select id="countryCompetitionType">
+              <option value="league">Liga</option>
+              <option value="cup">Copa</option>
+            </select>
+            <input id="countryCompetitionTeams" type="number" min="2" value="20" placeholder="Número de times">
+            <select id="countryCompetitionLegs">
+              <option value="single">Turno único</option>
+              <option value="double">Turno e returno</option>
+            </select>
+            <select id="countryCompetitionCupMode" class="hidden">
+              <option value="single">Jogo único</option>
+              <option value="double">Ida e volta</option>
+            </select>
             <button class="primary" type="submit">Adicionar competição</button>
           </form>
         </div>
