@@ -118,12 +118,10 @@ async function refreshAdmin(){
   }).join("");
   $("#countriesList").innerHTML=countryGroups||'<div class="empty-small">Nenhum país cadastrado.</div>';
 
-  $("#competitionsList").innerHTML=comps.length?comps.map(x=>'<div class="admin-item"><div class="admin-item-main"><div class="admin-item-name">'+esc(x.name)+'</div><div class="admin-item-meta">'+esc(x.countries?.name||"Sem país")+' · Divisão '+x.division+'</div></div><button class="admin-delete" data-delete-competition="'+x.id+'">Excluir</button></div>').join(""):'<div class="empty-small">Nenhuma competição cadastrada.</div>';
   $("#clubsList").innerHTML=cls.length?cls.map(x=>{
     const link=linkByClub[x.id],comp=link?.competitions;
     return '<div class="admin-item"><div class="admin-item-main"><div class="admin-item-name">'+esc(x.name)+'</div><div class="admin-item-meta">'+esc(comp?.countries?.name||"Sem país")+' · '+esc(comp?.name||"Sem competição")+' · Força '+x.strength+'</div></div><div class="admin-item-actions"><button class="club-open" data-open-club="'+x.id+'">Elenco</button><button class="admin-delete" data-delete-club="'+x.id+'">Excluir</button></div></div>';
   }).join(""):'<div class="empty-small">Nenhum clube cadastrado.</div>';
-  $("#competitionCountry").innerHTML=optionRows(cs,"País");
   $("#clubCompetition").innerHTML=optionRows(comps,"Competição");
   document.querySelectorAll("[data-open-country]").forEach(b=>b.onclick=()=>openAdminCountry(Number(b.dataset.openCountry)));
   document.querySelectorAll("[data-delete-competition]").forEach(b=>b.onclick=()=>deleteAdmin("competitions",b.dataset.deleteCompetition));
