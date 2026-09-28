@@ -190,7 +190,7 @@ async function refreshCompetitionTeams(){
   $("#competitionTeamClub").innerHTML='<option value="">Selecione o time</option>'+available.map(x=>'<option value="'+x.id+'">'+esc(x.name)+(x.short_name?' ('+esc(x.short_name)+')':'')+'</option>').join("");
   const competitionFull=teams.length>=Number(comp.team_count||0);
   $("#competitionTeamClub").disabled=competitionFull;
-  $("#competitionTeamForm button[type="submit"]").disabled=competitionFull;
+  $("#competitionTeamForm button[type='submit']").disabled=competitionFull;
   $("#addAllCompetitionTeams").disabled=competitionFull || available.length===0;
   $("#competitionTeamsCount").textContent=teams.length+" / "+comp.team_count+" times";
   $("#competitionTeamsList").innerHTML=teams.length?teams.map(x=>'<div class="admin-item"><div class="admin-item-main"><div class="admin-item-name">⚽ '+esc(x.clubs?.name||"Time")+'</div><div class="admin-item-meta">Força '+(x.clubs?.strength??"-")+(x.clubs?.short_name?' · '+esc(x.clubs.short_name):"")+'</div></div><button class="admin-delete" data-remove-competition-team="'+x.id+'">Retirar</button></div>').join(""):'<div class="empty-small">Nenhum time cadastrado nesta competição.</div>';
