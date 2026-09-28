@@ -148,9 +148,31 @@ async function refreshCountryCompetitions(){
   const {data,error}=await supabaseClient.from("competitions").select("*").eq("country_id",currentAdminCountryId).order("division").order("name");
   if(error){adminMessage("Não foi possível carregar as competições.","error");return;}
   $("#countryCompetitionsList").innerHTML=(data||[]).length
-    ? data.map(x=>'<div class="admin-item"><div class="admin-item-main"><div class="admin-item-name">🏆 '+esc(x.name)+'</div><div class="admin-item-meta">Divisão '+x.division+'</div></div><button class="admin-delete" data-delete-country-competition="'+x.id+'">Excluir</button></div>').join("")
+    ? data.map(x=>{
+        const type=x.competition_type==="cup"?"Copa":"Liga";
+        const format=x.competition_type==="cup"
+          ? (x.cup_mode==="double"?"Ida e volta":"Jogo único")
+          : (x.round_robin_legs==="double"?"Turno e returno":"Turno único");
+        return '<div class="admin-item"><div class="admin-item-main"><div class="admin-item-name">🏆 '+esc(x.name)+'</div><div class="admin-item-meta">'+type+' · Divisão '+x.division+' · '+(x.team_count||0)+' times · '+format+'</div></div><div class="admin-item-actions"><button class="club-open" data-edit-country-competition="'+x.id+'">Editar</button><button class="admin-delete" data-delete-country-competition="'+x.id+'">Excluir</button></div></div>';
+      }).join("")
     : '<div class="empty-small">Nenhuma competição cadastrada neste país.</div>';
   document.querySelectorAll("[data-delete-country-competition]").forEach(b=>b.onclick=()=>deleteCountryCompetition(Number(b.dataset.deleteCountryCompetition)));
+  document.querySelectorAll("[data-edit-country-competition]").forEach(b=>b.onclick=()=>editCountryCompetition(Number(b.dataset.editCountryCompetition)));
+}
+
+async function editCountryCompetition(id){
+  const {data:c,error}=await supabaseClient.from("competitions").select("*").eq("id",id).single();
+  if(error){adminMessage("Não foi possível carregar a competição: "+error.message,"error");return;}
+  $("#countryCompetitionName").value=c.name||"";
+  $("#countryCompetitionDivision").value=c.division||1;
+  $("#countryCompetitionType").value=c.competition_type||"league";
+  $("#countryCompetitionTeams").value=c.team_count||20;
+  $("#countryCompetitionLegs").value=c.round_robin_legs||"single";
+  $("#countryCompetitionCupMode").value=c.cup_mode||"single";
+  document.querySelector("#countryCompetitionForm button").textContent="Salvar alterações";
+  document.querySelector("#countryCompetitionForm").dataset.editingId=id;
+  document.querySelector("#countryCompetitionType").dispatchEvent(new Event("change"));
+  window.scrollTo({top:0,behavior:"smooth"});
 }
 
 async function deleteCountryCompetition(id){
@@ -289,16 +311,35 @@ function setupAdminForms(){
     $("#clubName").value="";$("#clubShortName").value="";
     await refreshAdmin();
   };
+  const syncCompetitionTypeFields=()=>{
+    const type=$("#countryCompetitionType").value;
+    $("#countryCompetitionLegs").classList.toggle("hidden",type!=="league");
+    $("#countryCompetitionCupMode").classList.toggle("hidden",type!=="cup");
+  };
+  $("#countryCompetitionType").onchange=syncCompetitionTypeFields;
+  syncCompetitionTypeFields();
+
   $("#countryCompetitionForm").onsubmit=async e=>{
     e.preventDefault();
     if(!currentAdminCountryId)return;
     const name=$("#countryCompetitionName").value.trim();
     const division=Number($("#countryCompetitionDivision").value)||1;
+    const competition_type=$("#countryCompetitionType").value;
+    const team_count=Number($("#countryCompetitionTeams").value)||2;
+    const round_robin_legs=competition_type==="league"?$("#countryCompetitionLegs").value:null;
+    const cup_mode=competition_type==="cup"?$("#countryCompetitionCupMode").value:null;
     if(!name)return;
-    const {error}=await supabaseClient.from("competitions").insert({name,country_id:currentAdminCountryId,division});
+    const editingId=e.currentTarget.dataset.editingId;
+    const payload={name,country_id:currentAdminCountryId,division,competition_type,team_count,round_robin_legs,cup_mode};
+    const {error}=editingId
+      ? await supabaseClient.from("competitions").update(payload).eq("id",editingId)
+      : await supabaseClient.from("competitions").insert(payload);
     if(error){adminMessage("Não foi possível salvar a competição: "+error.message,"error");return;}
     $("#countryCompetitionName").value="";
     $("#countryCompetitionDivision").value="1";
+    $("#countryCompetitionTeams").value=competition_type==="league"?"20":"32";
+    e.currentTarget.dataset.editingId="";
+    e.currentTarget.querySelector("button").textContent="Adicionar competição";
     await refreshCountryCompetitions();
     await refreshAdmin();
     adminMessage("Competição adicionada ao país.");
