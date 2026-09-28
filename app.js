@@ -7,6 +7,8 @@ let db;
 try{db=JSON.parse(localStorage.getItem(KEY)||"{\"championships\":[]}");if(!db||!Array.isArray(db.championships))throw new Error("dados");}
 catch(e){db={championships:[]};localStorage.removeItem(KEY)}
 let currentId=null;
+let currentAdminClubId=null;
+let adminCompetitions=[];
 
 const $=s=>document.querySelector(s);
 const save=()=>localStorage.setItem(KEY,JSON.stringify(db));
@@ -84,32 +86,112 @@ function optionRows(items,placeholder="Selecione..."){
 }
 
 async function refreshAdmin(){
-  const [countries,competitions,clubs,players]=await Promise.all([
+  const [countries,competitions,clubs,memberships]=await Promise.all([
     supabaseClient.from("countries").select("*").order("name"),
     supabaseClient.from("competitions").select("*, countries(name)").order("name"),
-    supabaseClient.from("clubs").select("*, countries(name)").order("name"),
-    supabaseClient.from("players").select("*, countries!players_nationality_country_id_fkey(name)").order("name")
+    supabaseClient.from("clubs").select("*").order("name"),
+    supabaseClient.from("competition_clubs").select("club_id, competition_id, competitions(id,name,country_id,countries(name))")
   ]);
-  if(countries.error||competitions.error||clubs.error||players.error){
-    adminMessage("Não foi possível carregar os dados administrativos.","error");
+  if(countries.error||competitions.error||clubs.error||memberships.error){
+    adminMessage("Não foi possível carregar os dados administrativos. Verifique se a tabela competition_clubs já foi criada.","error");
     return;
   }
   const cs=countries.data||[];
   const comps=competitions.data||[];
   const cls=clubs.data||[];
-  const ps=players.data||[];
+  const links=memberships.data||[];
+  adminCompetitions=comps;
+  const linkByClub={};
+  links.forEach(x=>linkByClub[x.club_id]=x);
   $("#countriesList").innerHTML=cs.length?cs.map(x=>'<div class="admin-item"><div class="admin-item-main"><div class="admin-item-name">'+esc(x.name)+'</div><div class="admin-item-meta">'+esc(x.code||"Sem código")+'</div></div><button class="admin-delete" data-delete-country="'+x.id+'">Excluir</button></div>').join(""):'<div class="empty-small">Nenhum país cadastrado.</div>';
   $("#competitionsList").innerHTML=comps.length?comps.map(x=>'<div class="admin-item"><div class="admin-item-main"><div class="admin-item-name">'+esc(x.name)+'</div><div class="admin-item-meta">'+esc(x.countries?.name||"Sem país")+' · Divisão '+x.division+'</div></div><button class="admin-delete" data-delete-competition="'+x.id+'">Excluir</button></div>').join(""):'<div class="empty-small">Nenhuma competição cadastrada.</div>';
-  $("#clubsList").innerHTML=cls.length?cls.map(x=>'<div class="admin-item"><div class="admin-item-main"><div class="admin-item-name">'+esc(x.name)+'</div><div class="admin-item-meta">'+esc(x.countries?.name||"Sem país")+' · Força '+x.strength+'</div></div><button class="admin-delete" data-delete-club="'+x.id+'">Excluir</button></div>').join(""):'<div class="empty-small">Nenhum clube cadastrado.</div>';
-  $("#playersList").innerHTML=ps.length?ps.map(x=>'<div class="admin-item"><div class="admin-item-main"><div class="admin-item-name">'+esc(x.name)+'</div><div class="admin-item-meta">'+esc(x.position)+' · OVR '+x.overall+' · POT '+x.potential+'</div></div><button class="admin-delete" data-delete-player="'+x.id+'">Excluir</button></div>').join(""):'<div class="empty-small">Nenhum jogador cadastrado.</div>';
+  $("#clubsList").innerHTML=cls.length?cls.map(x=>{
+    const link=linkByClub[x.id],comp=link?.competitions;
+    return '<div class="admin-item"><div class="admin-item-main"><div class="admin-item-name">'+esc(x.name)+'</div><div class="admin-item-meta">'+esc(comp?.countries?.name||"Sem país")+' · '+esc(comp?.name||"Sem competição")+' · Força '+x.strength+'</div></div><div class="admin-item-actions"><button class="club-open" data-open-club="'+x.id+'">Elenco</button><button class="admin-delete" data-delete-club="'+x.id+'">Excluir</button></div></div>';
+  }).join(""):'<div class="empty-small">Nenhum clube cadastrado.</div>';
   $("#competitionCountry").innerHTML=optionRows(cs,"País");
-  $("#clubCountry").innerHTML=optionRows(cs,"País");
-  $("#playerNationality").innerHTML=optionRows(cs,"Nacionalidade");
+  $("#clubCompetition").innerHTML=optionRows(comps,"Competição");
   document.querySelectorAll("[data-delete-country]").forEach(b=>b.onclick=()=>deleteAdmin("countries",b.dataset.deleteCountry));
   document.querySelectorAll("[data-delete-competition]").forEach(b=>b.onclick=()=>deleteAdmin("competitions",b.dataset.deleteCompetition));
   document.querySelectorAll("[data-delete-club]").forEach(b=>b.onclick=()=>deleteAdmin("clubs",b.dataset.deleteClub));
-  document.querySelectorAll("[data-delete-player]").forEach(b=>b.onclick=()=>deleteAdmin("players",b.dataset.deletePlayer));
+  document.querySelectorAll("[data-open-club]").forEach(b=>b.onclick=()=>openAdminClub(Number(b.dataset.openClub)));
 }
+
+async function openAdminClub(id){
+  currentAdminClubId=id;
+  const [{data:club,error:clubError},{data:link,error:linkError},{data:squad,error:squadError}]=await Promise.all([
+    supabaseClient.from("clubs").select("*").eq("id",id).single(),
+    supabaseClient.from("competition_clubs").select("competition_id, competitions(name, countries(name))").eq("club_id",id).maybeSingle(),
+    supabaseClient.from("club_players").select("id, shirt_number, squad_role, players(id,name,position,overall,potential)").eq("club_id",id).order("id")
+  ]);
+  if(clubError||linkError||squadError){adminMessage("Não foi possível abrir o elenco.","error");return;}
+  $("#clubAdminName").textContent=club.name;
+  $("#clubAdminEyebrow").textContent=link?.competitions?.countries?.name||"CLUBE";
+  $("#clubAdminMeta").textContent=(link?.competitions?.name||"Sem competição")+" · Força "+club.strength+" · Orçamento "+Number(club.budget||0).toLocaleString("pt-BR");
+  renderSquadRows();
+  renderSquadList(squad||[]);
+  show("clubAdmin");
+  $("#pageTitle").textContent=club.name;
+}
+
+function renderSquadRows(count=4){
+  const wrap=$("#squadRows");
+  wrap.innerHTML="";
+  for(let i=0;i<count;i++) addSquadRow();
+}
+
+function addSquadRow(){
+  const wrap=$("#squadRows");
+  const row=document.createElement("div");
+  row.className="squad-row";
+  row.innerHTML='<input class="squad-name" placeholder="Nome do jogador"><select class="squad-position"><option value="GK">GOL</option><option value="DEF">DEF</option><option value="MID" selected>MEI</option><option value="FWD">ATA</option></select><input class="squad-overall" type="number" min="1" max="100" value="50" placeholder="OVR"><input class="squad-potential" type="number" min="1" max="100" value="50" placeholder="POT"><button type="button" class="remove-row" title="Remover">×</button>';
+  row.querySelector(".remove-row").onclick=()=>row.remove();
+  wrap.appendChild(row);
+}
+
+function renderSquadList(squad){
+  $("#squadList").innerHTML=squad.length?squad.map(x=>'<div class="squad-player"><strong>'+esc(x.players?.name||"Jogador")+'</strong><span>'+esc(x.players?.position||"")+' · OVR '+(x.players?.overall??"-")+' · POT '+(x.players?.potential??"-")+' <button class="admin-delete" data-remove-player="'+x.id+'">Remover do elenco</button></span></div>').join(""):'<div class="empty-small">Nenhum jogador neste elenco.</div>';
+  document.querySelectorAll("[data-remove-player]").forEach(b=>b.onclick=()=>removeFromSquad(Number(b.dataset.removePlayer)));
+}
+
+async function reloadSquad(){
+  const {data,error}=await supabaseClient.from("club_players").select("id, shirt_number, squad_role, players(id,name,position,overall,potential)").eq("club_id",currentAdminClubId).order("id");
+  if(error){adminMessage("Não foi possível atualizar o elenco.","error");return;}
+  renderSquadList(data||[]);
+}
+
+async function saveSquad(){
+  const rows=[...document.querySelectorAll(".squad-row")];
+  const payload=rows.map(row=>({
+    name:row.querySelector(".squad-name").value.trim(),
+    position:row.querySelector(".squad-position").value,
+    overall:Number(row.querySelector(".squad-overall").value)||50,
+    potential:Number(row.querySelector(".squad-potential").value)||50
+  })).filter(x=>x.name);
+  if(!payload.length){adminMessage("Digite pelo menos um jogador.","error");return;}
+  const {data:players,error}=await supabaseClient.from("players").insert(payload).select("id");
+  if(error){adminMessage("Não foi possível salvar os jogadores: "+error.message,"error");return;}
+  const links=players.map(p=>({club_id:currentAdminClubId,player_id:p.id}));
+  const {error:linkError}=await supabaseClient.from("club_players").insert(links);
+  if(linkError){
+    await supabaseClient.from("players").delete().in("id",players.map(p=>p.id));
+    adminMessage("Não foi possível montar o elenco: "+linkError.message,"error");
+    return;
+  }
+  adminMessage(payload.length+" jogador(es) adicionado(s) ao elenco.");
+  renderSquadRows();
+  await reloadSquad();
+}
+
+async function removeFromSquad(id){
+  if(!confirm("Remover este jogador do elenco? O jogador continuará cadastrado no mundo e poderá ser usado novamente."))return;
+  const {error}=await supabaseClient.from("club_players").delete().eq("id",id);
+  if(error){adminMessage("Não foi possível remover: "+error.message,"error");return;}
+  await reloadSquad();
+  adminMessage("Jogador removido do elenco.");
+}
+
+
 
 async function deleteAdmin(table,id){
   if(!confirm("Excluir este cadastro? Se ele estiver sendo usado por outro dado, o banco poderá impedir a exclusão."))return;
@@ -130,7 +212,9 @@ async function addAdminRow(table,payload){
 function setupAdminForms(){
   $("#countryForm").onsubmit=async e=>{
     e.preventDefault();
-    await addAdminRow("countries",{name:$("#countryName").value.trim(),code:$("#countryCode").value.trim().toUpperCase()||null});
+    const name=$("#countryName").value.trim();
+    if(!name)return;
+    await addAdminRow("countries",{name,code:$("#countryCode").value.trim().toUpperCase()||null});
     $("#countryName").value="";$("#countryCode").value="";
   };
   $("#competitionForm").onsubmit=async e=>{
@@ -142,18 +226,29 @@ function setupAdminForms(){
   };
   $("#clubForm").onsubmit=async e=>{
     e.preventDefault();
-    const name=$("#clubName").value.trim(),country=$("#clubCountry").value;
-    if(!country){adminMessage("Selecione o país do clube.","error");return;}
-    const ok=await addAdminRow("clubs",{name,short_name:$("#clubShortName").value.trim()||null,country_id:Number(country),strength:Number($("#clubStrength").value)||50,reputation:Number($("#clubStrength").value)||50,budget:Number($("#clubBudget").value)||0});
-    if(ok){$("#clubName").value="";$("#clubShortName").value="";}
+    const name=$("#clubName").value.trim(),competitionId=Number($("#clubCompetition").value);
+    const comp=adminCompetitions.find(x=>Number(x.id)===competitionId);
+    if(!competitionId||!comp){adminMessage("Selecione a competição do clube.","error");return;}
+    const {data:club,error}=await supabaseClient.from("clubs").insert({
+      name,short_name:$("#clubShortName").value.trim()||null,country_id:comp.country_id,
+      strength:Number($("#clubStrength").value)||50,reputation:Number($("#clubStrength").value)||50,budget:Number($("#clubBudget").value)||0
+    }).select("id").single();
+    if(error){adminMessage("Não foi possível salvar o clube: "+error.message,"error");return;}
+    const {error:linkError}=await supabaseClient.from("competition_clubs").insert({club_id:club.id,competition_id:competitionId});
+    if(linkError){
+      await supabaseClient.from("clubs").delete().eq("id",club.id);
+      adminMessage("Não foi possível vincular o clube à competição: "+linkError.message,"error");
+      return;
+    }
+    adminMessage("Clube adicionado à competição.");
+    $("#clubName").value="";$("#clubShortName").value="";
+    await refreshAdmin();
   };
-  $("#playerForm").onsubmit=async e=>{
-    e.preventDefault();
-    const name=$("#playerName").value.trim(),nationality=$("#playerNationality").value;
-    const ok=await addAdminRow("players",{name,nationality_country_id:nationality?Number(nationality):null,position:$("#playerPosition").value,overall:Number($("#playerOverall").value)||50,potential:Number($("#playerPotential").value)||50});
-    if(ok)$("#playerName").value="";
-  };
+  $("#addPlayerRow").onclick=()=>addSquadRow();
+  $("#saveSquad").onclick=saveSquad;
+  $("#backAdmin").onclick=async()=>{show("admin");$("#pageTitle").textContent="Meus campeonatos";await refreshAdmin();};
 }
+
 
 
 document.addEventListener("DOMContentLoaded",async()=>{
