@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Global Football Sim</title>
-<link rel="stylesheet" href="style.css?v=0.1.2">
+<link rel="stylesheet" href="style.css?v=0.1.3">
 </head>
 <body>
 
@@ -45,7 +45,7 @@
     <button class="nav active" data-view="home">🏠 Campeonatos</button>
     <button class="nav" data-view="create">＋ Criar campeonato</button>
     <button class="nav hidden" id="adminNav" data-view="admin">⚙️ Administração</button>
-    <div class="side-note">Versão 0.1.2<br>Conta conectada ao Supabase.</div>
+    <div class="side-note">Versão 0.1.3<br>Conta conectada ao Supabase.</div>
   </aside>
 
   <main>
@@ -84,7 +84,7 @@
       <div class="admin-head"><div><div class="eyebrow">MUNDO COMPARTILHADO</div><h2>Administração</h2><p class="muted">Cadastre os dados oficiais que serão usados por todas as carreiras.</p></div></div>
       <div id="adminMessage" class="admin-message hidden"></div>
       <div class="admin-grid">
-        <div class="card admin-card"><h3>🌎 Países</h3><form id="countryForm" class="admin-form"><input id="countryName" placeholder="Nome do país" required><input id="countryCode" placeholder="Código (ex.: BR)" maxlength="3"><button class="primary" type="submit">Adicionar país</button></form><div id="countriesList" class="admin-list"></div></div>
+        <div class="card admin-card"><h3>🌎 Países</h3><form id="countryForm" class="admin-form"><input id="countryName" placeholder="Nome do país" required><div class="admin-form-row"><input id="countryCode" placeholder="Código (ex.: BR)" maxlength="10"><input id="countryFlag" placeholder="Bandeira (ex.: 🇧🇷)" maxlength="8"></div><select id="countryContinent" required><option value="">Continente</option><option>África</option><option>América do Norte</option><option>América do Sul</option><option>Ásia</option><option>Europa</option><option>Oceania</option></select><button class="primary" type="submit">Adicionar país</button></form><div id="countriesList" class="admin-list"></div></div>
         <div class="card admin-card"><h3>🏆 Competições</h3><form id="competitionForm" class="admin-form"><input id="competitionName" placeholder="Nome da competição" required><select id="competitionCountry"></select><input id="competitionDivision" type="number" min="1" value="1" placeholder="Divisão"><button class="primary" type="submit">Adicionar competição</button></form><div id="competitionsList" class="admin-list"></div></div>
         <div class="card admin-card"><h3>⚽ Clubes</h3><p class="muted">Escolha a competição e cadastre o clube. Depois entre nele para montar o elenco.</p><form id="clubForm" class="admin-form"><input id="clubName" placeholder="Nome do clube" required><input id="clubShortName" placeholder="Nome curto"><select id="clubCompetition" required></select><input id="clubStrength" type="number" min="1" max="100" value="50" placeholder="Força"><input id="clubBudget" type="number" min="0" value="0" placeholder="Orçamento"><button class="primary" type="submit">Adicionar clube</button></form><div id="clubsList" class="admin-list"></div></div>
         <div class="card admin-card"><h3>ℹ️ Como funciona</h3><p class="muted">O jogador agora é cadastrado diretamente dentro do clube. Assim o caminho fica:</p><div class="hierarchy"><div>🌎 País</div><span>↓</span><div>🏆 Competição</div><span>↓</span><div>⚽ Clube</div><span>↓</span><div>👥 Elenco</div></div></div>
@@ -102,6 +102,6 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="app.js?v=0.1.2"></script>
+<script src="app.js?v=0.1.3"></script>
 </body>
 </html>
