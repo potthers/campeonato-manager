@@ -35,3 +35,10 @@
 #countryCompetitionForm button{grid-column:1/-1;justify-self:start}
 #countryCompetitionForm input,#countryCompetitionForm select{width:100%}
 @media(max-width:650px){#countryCompetitionForm{grid-template-columns:1fr}}
+
+.competition-teams-grid{display:grid;grid-template-columns:minmax(280px,.8fr) minmax(0,1.2fr);gap:18px}
+.competition-teams-grid h3{margin:0 0 8px}
+#competitionTeamForm{display:flex;flex-direction:column;gap:10px}
+#competitionTeamClub{width:100%}
+.admin-item-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+@media(max-width:950px){.competition-teams-grid{grid-template-columns:1fr}}
