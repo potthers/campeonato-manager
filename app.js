@@ -575,13 +575,13 @@ function setupAdminForms(){
   $("#openRosterImporter").onclick=openRosterImporter;
   $("#rosterImportCompetition").onchange=e=>loadRosterImportClubs(e.target.value);
   $("#backAdminFromRosterImporter").onclick=async()=>{show("admin");$("#pageTitle").textContent="Meus campeonatos";await refreshAdmin();};
-  $("#rosterImportForm").onsubmit=e=>{
-    e.preventDefault();
+  $("#searchRosterBtn").onclick=async()=>{
     const clubId=Number($("#rosterImportClub").value);
     if(!clubId){rosterImportMessage("Selecione o clube.","error");return;}
     currentAdminClubId=clubId;
-    searchRosterFromApi();
+    await searchRosterFromApi();
   };
+  $("#rosterImportForm").onsubmit=e=>e.preventDefault();
   $("#saveImportedRoster").onclick=saveImportedRoster;
 
   $("#competitionTeamForm").onsubmit=async e=>{
