@@ -10,3 +10,14 @@
 .country-main{display:flex;align-items:center;gap:10px}
 .country-flag{font-size:24px;line-height:1;min-width:30px;text-align:center}
 @media(max-width:650px){.admin-form-row{grid-template-columns:1fr}}
+
+.continent-group{border:1px solid #e2e7eb;border-radius:10px;background:#fff;overflow:hidden;margin-bottom:8px}
+.continent-title{list-style:none;display:flex;align-items:center;justify-content:space-between;padding:13px 14px;background:#fafbfc;cursor:pointer;font-size:13px;font-weight:800}
+.continent-title::-webkit-details-marker{display:none}
+.continent-title::before{content:"▸";margin-right:9px;color:#71808d;font-size:12px;transition:transform .15s ease}
+.continent-group[open]>.continent-title::before{transform:rotate(90deg)}
+.continent-title span{display:flex;align-items:center;gap:2px}
+.continent-title small{font-size:10px;color:#7a8792;font-weight:700}
+.continent-countries{border-top:1px solid #e2e7eb}
+.continent-countries .admin-item{border:0;border-radius:0;background:#fff;border-bottom:1px solid #edf0f2}
+.continent-countries .admin-item:last-child{border-bottom:0}
