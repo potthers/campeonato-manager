@@ -79,203 +79,221 @@ async function loadAdmin(user){
 }
 
 
+
+let rosterImportCompetitionClubs=[];
+let rosterImportFileName="";
+let rosterImportErrors=[];
+
 function openRosterImporter(){
   const select=$("#rosterImportCompetition");
   select.innerHTML='<option value="">Selecione a competição</option>'+adminCompetitions.map(x=>'<option value="'+x.id+'">'+esc(x.name)+(x.countries?.name?' · '+esc(x.countries.name):'')+'</option>').join("");
-  $("#rosterImportClub").innerHTML='<option value="">Selecione o clube</option>';
-  $("#rosterImportClub").disabled=true;
+  $("#rosterCsvFile").value="";
+  $("#rosterCsvText").value="";
+  $("#rosterImportResult").classList.add("hidden");
+  $("#rosterImportMessage").classList.add("hidden");
+  rosterPreview=[];
+  rosterImportCompetitionClubs=[];
+  rosterImportErrors=[];
+  rosterImportFileName="";
   show("rosterImporter");
-  $("#pageTitle").textContent="Importar elenco";
+  $("#pageTitle").textContent="Importar elencos por CSV";
 }
+
 async function loadRosterImportClubs(competitionId){
-  const clubSelect=$("#rosterImportClub");
-  clubSelect.innerHTML='<option value="">Carregando clubes...</option>';
-  clubSelect.disabled=true;
   if(!competitionId){
-    clubSelect.innerHTML='<option value="">Selecione o clube</option>';
+    rosterImportCompetitionClubs=[];
     return;
   }
   const {data:links,error}=await supabaseClient.from("competition_clubs").select("club_id,clubs(id,name,short_name)").eq("competition_id",Number(competitionId)).order("id");
-  if(error){adminMessage("Não foi possível carregar os clubes: "+error.message,"error");clubSelect.innerHTML='<option value="">Selecione o clube</option>';return;}
-  clubSelect.innerHTML='<option value="">Selecione o clube</option>'+(links||[]).map(x=>'<option value="'+x.clubs.id+'">'+esc(x.clubs.name)+(x.clubs.short_name?' ('+esc(x.clubs.short_name)+')':'')+'</option>').join("");
-  clubSelect.disabled=!(links||[]).length;
+  if(error){
+    rosterImportCompetitionClubs=[];
+    adminMessage("Não foi possível carregar os clubes: "+error.message,"error");
+    return;
+  }
+  rosterImportCompetitionClubs=(links||[]).map(x=>x.clubs).filter(Boolean);
 }
-
 
 function normalizeName(name){
   return String(name||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().replace(/[^a-z0-9]+/g," ").trim();
 }
-function mapApiPosition(position){
-  const p=String(position||"").toLowerCase();
-  if(p.includes("goalkeeper"))return "GK";
-  if(p.includes("defender"))return "DEF";
-  if(p.includes("midfielder"))return "MID";
-  if(p.includes("forward"))return "FWD";
-  return "MID";
-}
-async function apiFootball(path,key){
-  const response=await fetch("https://v3.football.api-sports.io"+path,{headers:{"x-apisports-key":key}});
-  let data=null;
-  try{data=await response.json();}catch(e){}
-  if(!response.ok)throw new Error(data?.message||"A API retornou HTTP "+response.status+".");
-  if(data?.errors&&Object.keys(data.errors).length)throw new Error(Object.values(data.errors).join(" "));
-  return data;
-}
-async function findApiFootballTeam(clubName,key){
-  const data=await apiFootball("/teams?search="+encodeURIComponent(clubName),key);
-  const teams=data?.response||[];
-  if(!teams.length)throw new Error("Nenhum clube encontrado na API-Football para '"+clubName+"'.");
-  const exact=teams.find(x=>normalizeName(x.team?.name)===normalizeName(clubName));
-  return exact?.team||teams[0]?.team;
-}
-async function fetchApiFootballSquad(clubId,key){
-  const data=await apiFootball("/players/squads?team="+clubId,key);
-  return data?.response?.[0]?.players||[];
+
+function mapCsvPosition(position){
+  const p=normalizeName(position).replace(/\s+/g,"");
+  if(["gk","gol","goleiro","goalkeeper"].includes(p))return "GK";
+  if(["def","defesa","defensor","defender"].includes(p))return "DEF";
+  if(["mid","mei","meia","meio","midfielder"].includes(p))return "MID";
+  if(["fwd","ata","atacante","forward"].includes(p))return "FWD";
+  return "";
 }
 
-function numberValue(value){
-  const n=Number(value);
-  return Number.isFinite(n)?n:0;
-}
-function clampRating(value,min=1,max=99){
-  return Math.max(min,Math.min(max,Math.round(value)));
-}
-function getCurrentSeason(){
-  return new Date().getFullYear();
-}
-function playerStatBlock(player){
-  const stats=player?.statistics||[];
-  if(!stats.length)return null;
-  const preferred=stats.find(s=>s?.team?.id&&s?.games)||stats[0];
-  return preferred||null;
-}
-function sumPlayerStats(player){
-  const stats=player?.statistics||[];
-  const total={
-    appearances:0,starts:0,minutes:0,goals:0,assists:0,shots:0,shotsOn:0,
-    passes:0,keyPasses:0,passAccuracy:0,tackles:0,interceptions:0,duels:0,
-    duelsWon:0,dribbles:0,dribblesSuccess:0,clearances:0,blocks:0,
-    saves:0,goalsConceded:0,yellow:0,red:0,ratings:[],ratingCount:0
-  };
-  stats.forEach(s=>{
-    const g=s?.games||{},go=s?.goals||{},sh=s?.shots||{},pa=s?.passes||{},ta=s?.tackles||{},du=s?.duels||{},dr=s?.dribbles||{},ca=s?.cards||{};
-    total.appearances+=numberValue(g.appearences);
-    total.starts+=numberValue(g.lineups);
-    total.minutes+=numberValue(g.minutes);
-    total.goals+=numberValue(go.total);
-    total.assists+=numberValue(go.assists);
-    total.shots+=numberValue(sh.total);
-    total.shotsOn+=numberValue(sh.on);
-    total.passes+=numberValue(pa.total);
-    total.keyPasses+=numberValue(pa.key);
-    total.passAccuracy+=numberValue(pa.accuracy);
-    total.tackles+=numberValue(ta.total);
-    total.interceptions+=numberValue(ta.interceptions);
-    total.duels+=numberValue(du.total);
-    total.duelsWon+=numberValue(du.won);
-    total.dribbles+=numberValue(dr.attempts);
-    total.dribblesSuccess+=numberValue(dr.success);
-    total.clearances+=numberValue(ta.clearances);
-    total.blocks+=numberValue(ta.blocks);
-    total.saves+=numberValue(g.saves);
-    total.goalsConceded+=numberValue(go.conceded);
-    total.yellow+=numberValue(ca.yellow);
-    total.red+=numberValue(ca.red);
-    const rating=Number(g.rating);
-    if(Number.isFinite(rating)){total.ratings.push(rating);total.ratingCount++;}
-  });
-  total.rating=total.ratings.length?total.ratings.reduce((a,b)=>a+b,0)/total.ratings.length:0;
-  total.passAccuracy=stats.length?total.passAccuracy/stats.length:0;
-  return total;
-}
-async function fetchApiFootballPlayerStats(teamId,key,season=getCurrentSeason()){
-  let page=1;
-  const players=[];
-  while(page<=5){
-    const data=await apiFootball("/players?team="+teamId+"&season="+season+"&page="+page,key);
-    players.push(...(data?.response||[]));
-    const totalPages=Number(data?.paging?.total||1);
-    if(page>=totalPages)break;
-    page++;
+function parseCsvLine(line){
+  const cells=[];
+  let value="";
+  let quoted=false;
+  for(let i=0;i<line.length;i++){
+    const ch=line[i];
+    if(ch==='"'){
+      if(quoted&&line[i+1]==='"'){value+='"';i++;}
+      else quoted=!quoted;
+    }else if((ch===","||ch===";")&&!quoted){
+      cells.push(value.trim());
+      value="";
+    }else{
+      value+=ch;
+    }
   }
-  return players;
+  cells.push(value.trim());
+  return cells;
 }
-function calculateAutomaticRatings(player,stats){
-  const age=numberValue(player?.age);
-  const position=mapApiPosition(player?.position);
-  const s=stats||{};
-  const apps=numberValue(s.appearances);
-  const minutes=numberValue(s.minutes);
-  const rating=s.rating||0;
-  const reliability=Math.min(1,minutes/1800);
-  let performance=rating?((rating-5.8)/1.8)*18:0;
 
-  let roleScore=0;
-  if(position==="GK"){
-    roleScore += Math.min(12,s.saves*0.08);
-    roleScore -= Math.min(8,s.goalsConceded*0.04);
-  }else if(position==="DEF"){
-    roleScore += Math.min(10,s.tackles*0.16);
-    roleScore += Math.min(8,s.interceptions*0.12);
-    roleScore += Math.min(5,s.clearances*0.035);
-    roleScore += Math.min(4,s.blocks*0.12);
-    roleScore += Math.min(7,s.goals*0.9);
-    roleScore += Math.min(6,s.assists*0.8);
-  }else if(position==="MID"){
-    roleScore += Math.min(9,s.keyPasses*0.12);
-    roleScore += Math.min(8,s.assists*1.4);
-    roleScore += Math.min(10,s.goals*0.9);
-    roleScore += Math.min(6,s.dribblesSuccess*0.08);
-    roleScore += Math.min(6,s.tackles*0.08);
-  }else{
-    roleScore += Math.min(14,s.goals*0.9);
-    roleScore += Math.min(10,s.assists*1.3);
-    roleScore += Math.min(7,s.shotsOn*0.12);
-    roleScore += Math.min(5,s.dribblesSuccess*0.07);
+function parseCsv(text){
+  const clean=String(text||"").replace(/^\uFEFF/,"").replace(/\r/g,"");
+  const lines=clean.split("\n").filter(line=>line.trim()!=="");
+  if(!lines.length)throw new Error("O CSV está vazio.");
+  const rows=[];
+  let current="";
+  let quoted=false;
+
+  for(const line of lines){
+    current=current?current+"\n"+line:line;
+    let quotes=0;
+    for(let j=0;j<line.length;j++)if(line[j]==='"'&&line[j-1]!=='"')quotes++;
+    if(quotes%2===1)quoted=!quoted;
+    if(!quoted){
+      rows.push(parseCsvLine(current));
+      current="";
+    }
   }
-
-  const base=62+(reliability*6)+performance+roleScore;
-  const sampleBonus=Math.min(4,apps/10);
-  const rawOvr=base+sampleBonus;
-  const ovr=clampRating(rawOvr,55,94);
-
-  let ageFactor=0;
-  if(age>=17&&age<=20)ageFactor=10;
-  else if(age<=23)ageFactor=7;
-  else if(age<=26)ageFactor=4;
-  else if(age<=29)ageFactor=2;
-  else if(age<=32)ageFactor=0;
-  else ageFactor=-2;
-
-  const performancePotential=rating?Math.max(-2,Math.min(3,(rating-7)*1.5)):0;
-  const pot=clampRating(Math.max(ovr,ovr+ageFactor+performancePotential),ovr,99);
-  return {overall:ovr,potential:pot,statsUsed:Boolean(stats)};
+  if(current)rows.push(parseCsvLine(current));
+  return rows;
 }
-function applyAutomaticRatings(roster,statPlayers){
-  const byId={};
-  const byName={};
-  (statPlayers||[]).forEach(p=>{
-    if(p?.player?.id)byId[p.player.id]=p;
-    if(p?.player?.name)byName[normalizeName(p.player.name)]=p;
-  });
-  return roster.map(p=>{
-    const detailed=byId[p.id]||byName[normalizeName(p.name)];
-    const stats=sumPlayerStats(detailed);
-    const ratings=calculateAutomaticRatings({...p,age:detailed?.player?.age||p.age},stats);
-    return {...p,...ratings,age:detailed?.player?.age||p.age||null};
-  });
+
+function normalizeHeader(header){
+  return normalizeName(header).replace(/\s+/g,"");
 }
+
+function findCsvColumn(headers,names){
+  for(const name of names){
+    const index=headers.indexOf(normalizeHeader(name));
+    if(index>=0)return index;
+  }
+  return -1;
+}
+
+function parseRosterCsv(text){
+  const raw=parseCsv(text);
+  if(raw.length<2)throw new Error("O CSV precisa ter uma linha de cabeçalho e pelo menos um jogador.");
+
+  const headers=raw[0].map(normalizeHeader);
+  const clubIndex=findCsvColumn(headers,["clube","club","time","team"]);
+  const playerIndex=findCsvColumn(headers,["jogador","player","nome","name"]);
+  const positionIndex=findCsvColumn(headers,["posicao","posição","position"]);
+  const numberIndex=findCsvColumn(headers,["numero","número","numero camisa","camisa","number","shirt number","shirt_number"]);
+  const ovrIndex=findCsvColumn(headers,["ovr","overall","forca","força"]);
+  const potIndex=findCsvColumn(headers,["pot","potential","potencial"]);
+
+  if(clubIndex<0||playerIndex<0||positionIndex<0||ovrIndex<0||potIndex<0)throw new Error("Cabeçalho inválido. O CSV precisa conter: clube, jogador, posicao, ovr e pot. A coluna numero é opcional.");
+
+  const rows=[];
+  const errors=[];
+  const seen=new Set();
+
+  for(let i=1;i<raw.length;i++){
+    const lineNumber=i+1;
+    const cells=raw[i];
+    const club=String(cells[clubIndex]||"").trim();
+    const name=String(cells[playerIndex]||"").trim();
+    const position=mapCsvPosition(cells[positionIndex]);
+    const numberRaw=numberIndex>=0?String(cells[numberIndex]||"").trim():"";
+    const ovrRaw=Number(String(cells[ovrIndex]||"").replace(",",".")); 
+    const potRaw=Number(String(cells[potIndex]||"").replace(",",".")); 
+
+    if(!club&&!name&&!cells.some(Boolean))continue;
+    const rowErrors=[];
+    if(!club)rowErrors.push("clube não informado");
+    if(!name)rowErrors.push("jogador não informado");
+    if(!position)rowErrors.push("posição inválida");
+    if(!Number.isFinite(ovrRaw)||ovrRaw<1||ovrRaw>100)rowErrors.push("OVR inválido");
+    if(!Number.isFinite(potRaw)||potRaw<1||potRaw>100)rowErrors.push("POT inválido");
+    const number=numberRaw===""?null:Number(numberRaw);
+    if(numberRaw!==""&&(!Number.isFinite(number)||number<0||number>99))rowErrors.push("número da camisa inválido");
+
+    if(rowErrors.length){
+      rowErrors.forEach(message=>errors.push("Linha "+lineNumber+": "+message+"."));
+      continue;
+    }
+
+    const key=normalizeName(club)+"|"+normalizeName(name);
+    if(seen.has(key)){
+      errors.push("Linha "+lineNumber+": jogador duplicado para o mesmo clube.");
+      continue;
+    }
+    seen.add(key);
+
+    rows.push({
+      line:lineNumber,
+      clubInput:club,
+      player:name,
+      position,
+      number,
+      overall:Math.round(ovrRaw),
+      potential:Math.round(potRaw),
+      clubId:null,
+      clubName:"",
+      validClub:false
+    });
+  }
+  return {rows,errors};
+}
+
+function resolveRosterClub(input){
+  const key=normalizeName(input);
+  return rosterImportCompetitionClubs.find(club=>normalizeName(club.name)===key||normalizeName(club.short_name)===key)||null;
+}
+
 function renderRosterPreview(){
   const wrap=$("#rosterImportRows");
-  wrap.innerHTML=rosterPreview.map((p,i)=>'<tr><td><strong>'+esc(p.name)+'</strong></td><td><select class="roster-pos" data-roster-index="'+i+'"><option value="GK"'+(p.position==="GK"?" selected":"")+'>GOL</option><option value="DEF"'+(p.position==="DEF"?" selected":"")+'>DEF</option><option value="MID"'+(p.position==="MID"?" selected":"")+'>MEI</option><option value="FWD"'+(p.position==="FWD"?" selected":"")+'>ATA</option></select></td><td>'+(p.number??"-")+'</td><td><input class="roster-ovr" data-roster-index="'+i+'" type="number" min="1" max="100" value="'+p.overall+'"></td><td><input class="roster-pot" data-roster-index="'+i+'" type="number" min="1" max="100" value="'+p.potential+'"></td></tr>').join("");
-  $("#rosterImportResultMeta").textContent=rosterPreview.length+" jogador(es) encontrado(s). Revise os dados antes de importar.";
-  $("#rosterImportResult").classList.toggle("hidden",!rosterPreview.length);
+  const errorsEl=$("#rosterImportErrors");
+  const invalidClubCount=rosterPreview.filter(x=>!x.validClub).length;
+
+  wrap.innerHTML=rosterPreview.map((p,i)=>
+    '<tr class="'+(p.validClub?"":"csv-row-error")+'">'+
+    '<td><strong>'+esc(p.clubInput)+'</strong>'+(p.validClub?'':'<small class="csv-inline-error">Clube não encontrado</small>')+'</td>'+
+    '<td><strong>'+esc(p.player)+'</strong></td>'+
+    '<td><select class="roster-pos" data-roster-index="'+i+'">'+
+      '<option value="GK"'+(p.position==="GK"?" selected":"")+'>GOL</option>'+
+      '<option value="DEF"'+(p.position==="DEF"?" selected":"")+'>DEF</option>'+
+      '<option value="MID"'+(p.position==="MID"?" selected":"")+'>MEI</option>'+
+      '<option value="FWD"'+(p.position==="FWD"?" selected":"")+'>ATA</option>'+
+    '</select></td>'+
+    '<td><input class="roster-number" data-roster-index="'+i+'" type="number" min="0" max="99" value="'+(p.number??"")+'"></td>'+
+    '<td><input class="roster-ovr" data-roster-index="'+i+'" type="number" min="1" max="100" value="'+p.overall+'"></td>'+
+    '<td><input class="roster-pot" data-roster-index="'+i+'" type="number" min="1" max="100" value="'+p.potential+'"></td>'+
+    '</tr>'
+  ).join("");
+
+  if(rosterImportErrors.length){
+    errorsEl.innerHTML="<strong>Problemas encontrados:</strong><br>"+rosterImportErrors.map(esc).join("<br>");
+    errorsEl.classList.remove("hidden");
+  }else{
+    errorsEl.classList.add("hidden");
+    errorsEl.innerHTML="";
+  }
+
+  const total=rosterPreview.length;
+  const ready=rosterPreview.filter(x=>x.validClub).length;
+  $("#rosterImportResultMeta").textContent=total+" jogador(es) lido(s) · "+ready+" pronto(s) para importar"+(invalidClubCount?" · "+invalidClubCount+" com clube não encontrado":"");
+  $("#saveImportedRoster").disabled=!ready||rosterImportErrors.length>0;
+  $("#rosterImportResult").classList.toggle("hidden",!total);
 }
+
 function readRosterPreviewEdits(){
-  document.querySelectorAll(".roster-pos").forEach(x=>rosterPreview[Number(x.dataset.rosterIndex)].position=x.value);
-  document.querySelectorAll(".roster-ovr").forEach(x=>rosterPreview[Number(x.dataset.rosterIndex)].overall=Math.max(1,Math.min(100,Number(x.value)||50)));
-  document.querySelectorAll(".roster-pot").forEach(x=>rosterPreview[Number(x.dataset.rosterIndex)].potential=Math.max(1,Math.min(100,Number(x.value)||50)));
+  document.querySelectorAll(".roster-pos").forEach(x=>{const row=rosterPreview[Number(x.dataset.rosterIndex)];if(row)row.position=x.value;});
+  document.querySelectorAll(".roster-number").forEach(x=>{const row=rosterPreview[Number(x.dataset.rosterIndex)];if(row)row.number=x.value===""?null:Math.max(0,Math.min(99,Number(x.value)||0));});
+  document.querySelectorAll(".roster-ovr").forEach(x=>{const row=rosterPreview[Number(x.dataset.rosterIndex)];if(row)row.overall=Math.max(1,Math.min(100,Number(x.value)||50));});
+  document.querySelectorAll(".roster-pot").forEach(x=>{const row=rosterPreview[Number(x.dataset.rosterIndex)];if(row)row.potential=Math.max(1,Math.min(100,Number(x.value)||50));});
 }
+
 function rosterImportMessage(message,type="info"){
   const el=$("#rosterImportMessage");
   if(!el)return;
@@ -283,235 +301,122 @@ function rosterImportMessage(message,type="info"){
   el.className="admin-message "+type;
   el.classList.remove("hidden");
 }
-async function searchRosterFromApi(){
-  const clubId=Number($("#rosterImportClub").value);
-  const key=$("#footballApiKey").value.trim();
-  if(!clubId){rosterImportMessage("Selecione o clube.","error");return;}
-  if(!key){rosterImportMessage("Cole a chave da API-Football para buscar o elenco.","error");return;}
-  const clubName=$("#rosterImportClub").selectedOptions[0]?.textContent.replace(/\s*\([^)]*\)\s*$/,"").trim()||"clube";
-  const form=$("#rosterImportForm");
-  form.classList.add("import-loading");
-  $("#rosterImportResult").classList.add("hidden");
-  rosterImportMessage("Etapa 2/5: testando a chave da API-Football...","info");
-  try{
-    rosterImportMessage("Etapa 3/5: procurando '"+clubName+"' na API-Football...","info");
-    const team=await findApiFootballTeam(clubName,key);
-    if(!team?.id)throw new Error("A API encontrou um resultado sem ID de equipe.");
-    rosterImportMessage("Etapa 4/5: clube encontrado — "+(team.name||clubName)+" (ID "+team.id+"). Buscando elenco...","info");
-    const players=await fetchApiFootballSquad(team.id,key);
-    if(!players.length)throw new Error("A API encontrou o clube, mas não retornou jogadores no elenco atual.");
-    rosterImportMessage("Etapa 5/6: calculando OVR e POT automaticamente com os dados de desempenho da temporada...","info");
-    let detailedPlayers=[];
+
+async function readRosterCsv(){
+  const competitionId=Number($("#rosterImportCompetition").value);
+  if(!competitionId){rosterImportMessage("Selecione a competição antes de ler o CSV.","error");return;}
+  if(!rosterImportCompetitionClubs.length)await loadRosterImportClubs(competitionId);
+  if(!rosterImportCompetitionClubs.length){rosterImportMessage("Essa competição não possui clubes cadastrados.","error");return;}
+
+  const file=$("#rosterCsvFile").files?.[0];
+  let text=$("#rosterCsvText").value.trim();
+  if(file){
     try{
-      detailedPlayers=await fetchApiFootballPlayerStats(team.id,key,getCurrentSeason());
-    }catch(statsError){
-      console.warn("Não foi possível carregar estatísticas da temporada; usando cálculo de fallback.",statsError);
+      text=await file.text();
+      rosterImportFileName=file.name;
+      $("#rosterCsvText").value=text;
+    }catch(error){
+      rosterImportMessage("Não foi possível ler o arquivo CSV: "+error.message,"error");
+      return;
     }
-    rosterImportApiKey=key;
-    rosterPreview=players.map(p=>({apiId:p.id,name:p.name||"Jogador",position:mapApiPosition(p.position),number:p.number,overall:50,potential:50,nationality:p.nationality||null,age:p.age||null,photo:p.photo||null}));
-    rosterPreview=applyAutomaticRatings(rosterPreview,detailedPlayers);
+  }
+  if(!text){rosterImportMessage("Selecione um arquivo CSV ou cole o conteúdo no campo.","error");return;}
+
+  try{
+    rosterImportMessage("Lendo e validando o CSV...","info");
+    const parsed=parseRosterCsv(text);
+    rosterImportErrors=[...parsed.errors];
+    rosterPreview=parsed.rows.map(row=>{
+      const club=resolveRosterClub(row.clubInput);
+      if(!club)rosterImportErrors.push("Linha "+row.line+": clube '"+row.clubInput+"' não está cadastrado nesta competição.");
+      return {...row,clubId:club?.id||null,clubName:club?.name||"",validClub:Boolean(club)};
+    });
     renderRosterPreview();
-    const statsCount=rosterPreview.filter(p=>p.statsUsed).length;
-    rosterImportMessage("Etapa 6/6: "+rosterPreview.length+" jogador(es) encontrados para "+(team.name||clubName)+". OVR/POT calculados automaticamente ("+statsCount+" com estatísticas da temporada).","success");
+    if(rosterImportErrors.length)rosterImportMessage("Encontrei "+rosterImportErrors.length+" problema(s). Corrija o CSV e leia novamente antes de importar.","error");
+    else rosterImportMessage(rosterPreview.length+" jogador(es) prontos para importação.","success");
   }catch(error){
-    rosterImportMessage("Falha durante a importação: "+(error?.message||String(error)),"error");
-  }finally{
-    form.classList.remove("import-loading");
+    rosterPreview=[];
+    rosterImportErrors=[error?.message||String(error)];
+    renderRosterPreview();
+    rosterImportMessage("Não foi possível ler o CSV: "+(error?.message||String(error)),"error");
   }
 }
+
+function downloadRosterCsvTemplate(){
+  const content="\uFEFFclube,jogador,posicao,numero,ovr,pot\nFlamengo,Jogador Exemplo,FWD,9,88,91\nFlamengo,Outro Jogador,MID,8,84,87\nPalmeiras,Jogador Exemplo 2,DEF,4,86,89\n";
+  const blob=new Blob([content],{type:"text/csv;charset=utf-8"});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement("a");
+  a.href=url;
+  a.download="modelo-elencos-global-football-sim.csv";
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
+function clearRosterCsv(){
+  $("#rosterCsvFile").value="";
+  $("#rosterCsvText").value="";
+  $("#rosterImportResult").classList.add("hidden");
+  $("#rosterImportMessage").classList.add("hidden");
+  rosterPreview=[];
+  rosterImportErrors=[];
+}
+
 async function saveImportedRoster(){
-  if(!currentAdminClubId||!rosterPreview.length)return;
   readRosterPreviewEdits();
+  const rows=rosterPreview.filter(x=>x.validClub);
+  if(!rows.length){rosterImportMessage("Não há jogadores válidos para importar.","error");return;}
+  if(rosterImportErrors.length){rosterImportMessage("Corrija os problemas do CSV antes de importar.","error");return;}
+
   const button=$("#saveImportedRoster");
   button.disabled=true;
   try{
-    const {data:existingLinks,error:existingError}=await supabaseClient.from("club_players").select("id,player_id,players(id,name)").eq("club_id",currentAdminClubId);
-    if(existingError)throw new Error(existingError.message);
-    const existingByName={};
-    (existingLinks||[]).forEach(x=>existingByName[normalizeName(x.players?.name)]=x);
-    const currentNames=new Set(rosterPreview.map(x=>normalizeName(x.name)));
-    let removed=0;
-    for(const link of (existingLinks||[])){
-      if(!currentNames.has(normalizeName(link.players?.name))){
-        const {error}=await supabaseClient.from("club_players").delete().eq("id",link.id);
-        if(error)throw new Error(error.message);
-        removed++;
-      }
-    }
-    let added=0,updated=0;
-    for(const p of rosterPreview){
-      const existing=existingByName[normalizeName(p.name)];
-      if(existing){
-        const {error}=await supabaseClient.from("players").update({position:p.position,overall:p.overall,potential:p.potential}).eq("id",existing.player_id);
-        if(error)throw new Error(error.message);
-        updated++;
-      }else{
-        const {data:player,error}=await supabaseClient.from("players").insert({name:p.name,position:p.position,overall:p.overall,potential:p.potential}).select("id").single();
-        if(error)throw new Error(error.message);
-        const {error:linkError}=await supabaseClient.from("club_players").insert({club_id:currentAdminClubId,player_id:player.id,shirt_number:p.number||null});
-        if(linkError){
-          await supabaseClient.from("players").delete().eq("id",player.id);
-          throw new Error(linkError.message);
+    const grouped={};
+    rows.forEach(row=>(grouped[row.clubId]??=[]).push(row));
+    let clubsDone=0,added=0,updated=0;
+
+    for(const clubId of Object.keys(grouped)){
+      const clubRows=grouped[clubId];
+      const clubName=clubRows[0].clubName||clubRows[0].clubInput;
+      rosterImportMessage("Importando "+clubName+"...","info");
+
+      const {data:existingLinks,error:existingError}=await supabaseClient.from("club_players").select("id,player_id,shirt_number,players(id,name)").eq("club_id",Number(clubId));
+      if(existingError)throw new Error(clubName+": "+existingError.message);
+
+      const existingByName={};
+      (existingLinks||[]).forEach(link=>existingByName[normalizeName(link.players?.name)]=link);
+
+      for(const row of clubRows){
+        const existing=existingByName[normalizeName(row.player)];
+        if(existing){
+          const {error:updateError}=await supabaseClient.from("players").update({position:row.position,overall:row.overall,potential:row.potential}).eq("id",existing.player_id);
+          if(updateError)throw new Error(clubName+" / "+row.player+": "+updateError.message);
+          const {error:numberError}=await supabaseClient.from("club_players").update({shirt_number:row.number}).eq("id",existing.id);
+          if(numberError)throw new Error(clubName+" / "+row.player+": "+numberError.message);
+          updated++;
+        }else{
+          const {data:player,error:playerError}=await supabaseClient.from("players").insert({name:row.player,position:row.position,overall:row.overall,potential:row.potential}).select("id").single();
+          if(playerError)throw new Error(clubName+" / "+row.player+": "+playerError.message);
+          const {error:linkError}=await supabaseClient.from("club_players").insert({club_id:Number(clubId),player_id:player.id,shirt_number:row.number});
+          if(linkError){
+            await supabaseClient.from("players").delete().eq("id",player.id);
+            throw new Error(clubName+" / "+row.player+": "+linkError.message);
+          }
+          added++;
         }
-        added++;
       }
+      clubsDone++;
     }
-    rosterPreview=[];
-    renderRosterPreview();
-    await reloadSquad();
-    adminMessage("Elenco atualizado: "+added+" novo(s), "+updated+" atualizado(s), "+removed+" removido(s).","success");
+
+    rosterImportMessage("Importação concluída: "+clubsDone+" clube(s), "+added+" jogador(es) novo(s) e "+updated+" atualizado(s).","success");
+    $("#rosterImportResultMeta").textContent="Concluído · "+clubsDone+" clube(s) · "+added+" novo(s) · "+updated+" atualizado(s).";
+    await refreshAdmin();
   }catch(error){
-    adminMessage("Não foi possível salvar o elenco: "+error.message,"error");
+    rosterImportMessage("A importação foi interrompida: "+(error?.message||String(error)),"error");
   }finally{
     button.disabled=false;
-  }
-}
-
-async function importAllCompetitionRosters(){
-  const competitionId=Number($("#rosterImportCompetition").value);
-  const key=$("#footballApiKey").value.trim();
-  if(!competitionId){rosterImportMessage("Selecione a competição.","error");return;}
-  if(!key){rosterImportMessage("Cole a chave da API-Football para importar os elencos.","error");return;}
-
-  const button=$("#importAllCompetitionRosters");
-  button.disabled=true;
-  $("#saveImportedRoster").disabled=true;
-  $("#rosterImportResult").classList.add("hidden");
-
-  try{
-    const {data:links,error}=await supabaseClient
-      .from("competition_clubs")
-      .select("club_id,clubs(id,name,short_name)")
-      .eq("competition_id",competitionId)
-      .order("id");
-
-    if(error)throw new Error("Não foi possível carregar os clubes da competição: "+error.message);
-    const clubs=(links||[]).map(x=>x.clubs).filter(Boolean);
-
-    if(!clubs.length)throw new Error("Essa competição não possui clubes cadastrados.");
-
-    let success=0,failed=0,totalPlayers=0;
-    const failures=[];
-
-    rosterImportMessage("Importação em massa iniciada: "+clubs.length+" clube(s) na fila.","info");
-
-    for(let i=0;i<clubs.length;i++){
-      const club=clubs[i];
-      const clubName=club.name||"Clube";
-      const progress=i+1;
-      try{
-        rosterImportMessage("Importando "+progress+"/"+clubs.length+": "+clubName+" — procurando clube na API...","info");
-
-        const team=await findApiFootballTeam(clubName,key);
-        if(!team?.id)throw new Error("Clube não encontrado na API-Football.");
-
-        rosterImportMessage("Importando "+progress+"/"+clubs.length+": "+clubName+" — buscando elenco...","info");
-        const players=await fetchApiFootballSquad(team.id,key);
-        if(!players.length)throw new Error("A API não retornou jogadores.");
-
-        rosterImportMessage("Importando "+progress+"/"+clubs.length+": "+clubName+" — calculando OVR/POT...","info");
-        let detailedPlayers=[];
-        try{
-          detailedPlayers=await fetchApiFootballPlayerStats(team.id,key,getCurrentSeason());
-        }catch(statsError){
-          console.warn("Estatísticas indisponíveis para "+clubName+"; usando fallback.",statsError);
-        }
-
-        let roster=players.map(p=>({
-          apiId:p.id,
-          name:p.name||"Jogador",
-          position:mapApiPosition(p.position),
-          number:p.number,
-          overall:50,
-          potential:50,
-          nationality:p.nationality||null,
-          age:p.age||null,
-          photo:p.photo||null
-        }));
-        roster=applyAutomaticRatings(roster,detailedPlayers);
-
-        const {data:existingLinks,error:existingError}=await supabaseClient
-          .from("club_players")
-          .select("id,player_id,players(id,name)")
-          .eq("club_id",club.id);
-
-        if(existingError)throw new Error(existingError.message);
-
-        const existingByName={};
-        (existingLinks||[]).forEach(x=>existingByName[normalizeName(x.players?.name)]=x);
-        const currentNames=new Set(roster.map(x=>normalizeName(x.name)));
-
-        for(const link of (existingLinks||[])){
-          if(!currentNames.has(normalizeName(link.players?.name))){
-            const {error:removeError}=await supabaseClient.from("club_players").delete().eq("id",link.id);
-            if(removeError)throw new Error(removeError.message);
-          }
-        }
-
-        let added=0,updated=0;
-        for(const p of roster){
-          const existing=existingByName[normalizeName(p.name)];
-          if(existing){
-            const {error:updateError}=await supabaseClient
-              .from("players")
-              .update({position:p.position,overall:p.overall,potential:p.potential})
-              .eq("id",existing.player_id);
-            if(updateError)throw new Error(updateError.message);
-
-            const {error:numberError}=await supabaseClient
-              .from("club_players")
-              .update({shirt_number:p.number||null})
-              .eq("id",existing.id);
-            if(numberError)throw new Error(numberError.message);
-
-            updated++;
-          }else{
-            const {data:player,error:playerError}=await supabaseClient
-              .from("players")
-              .insert({name:p.name,position:p.position,overall:p.overall,potential:p.potential})
-              .select("id")
-              .single();
-            if(playerError)throw new Error(playerError.message);
-
-            const {error:linkError}=await supabaseClient
-              .from("club_players")
-              .insert({club_id:club.id,player_id:player.id,shirt_number:p.number||null});
-
-            if(linkError){
-              await supabaseClient.from("players").delete().eq("id",player.id);
-              throw new Error(linkError.message);
-            }
-            added++;
-          }
-        }
-
-        success++;
-        totalPlayers+=roster.length;
-        rosterImportMessage("Importado "+progress+"/"+clubs.length+": "+clubName+" — "+roster.length+" jogadores ("+added+" novos, "+updated+" atualizados).","success");
-      }catch(error){
-        failed++;
-        failures.push(clubName+": "+(error?.message||String(error)));
-        rosterImportMessage("Falha em "+progress+"/"+clubs.length+": "+clubName+" — "+(error?.message||String(error)),"error");
-      }
-    }
-
-    const summary=success+" de "+clubs.length+" clube(s) importados, "+totalPlayers+" jogador(es) processados.";
-    if(failed){
-      rosterImportMessage(summary+" "+failed+" clube(s) falharam. Veja o resumo abaixo.","error");
-    }else{
-      rosterImportMessage(summary+" Todos os elencos foram atualizados.","success");
-    }
-
-    const result=$("#rosterImportResult");
-    result.classList.remove("hidden");
-    $("#rosterImportRows").innerHTML="";
-    $("#rosterImportResultMeta").innerHTML=
-      "<strong>Importação em massa concluída.</strong><br>"+
-      esc(summary)+
-      (failures.length?"<br><br><strong>Falhas:</strong><br>"+failures.map(esc).join("<br>"):"");
-  }finally{
-    button.disabled=false;
-    $("#saveImportedRoster").disabled=false;
   }
 }
 
@@ -865,18 +770,13 @@ function setupAdminForms(){
   $("#addAllCompetitionTeams").onclick=addAllCompetitionTeams;
 
   $("#openRosterImporter").onclick=openRosterImporter;
-  $("#rosterImportCompetition").onchange=e=>loadRosterImportClubs(e.target.value);
+  $("#rosterImportCompetition").onchange=async e=>loadRosterImportClubs(e.target.value);
   $("#backAdminFromRosterImporter").onclick=async()=>{show("admin");$("#pageTitle").textContent="Meus campeonatos";await refreshAdmin();};
-  $("#searchRosterBtn").onclick=async()=>{
-    rosterImportMessage("Clique detectado. Iniciando busca do elenco...","info");
-    const clubId=Number($("#rosterImportClub").value);
-    if(!clubId){rosterImportMessage("Etapa 1/5: selecione o clube.","error");return;}
-    currentAdminClubId=clubId;
-    await searchRosterFromApi();
-  };
-  $("#rosterImportForm").onsubmit=e=>e.preventDefault();
+  $("#loadRosterCsvBtn").onclick=readRosterCsv;
+  $("#downloadRosterCsvTemplate").onclick=downloadRosterCsvTemplate;
+  $("#clearRosterCsvBtn").onclick=clearRosterCsv;
   $("#saveImportedRoster").onclick=saveImportedRoster;
-  $("#importAllCompetitionRosters").onclick=importAllCompetitionRosters;
+  $("#rosterImportForm").onsubmit=e=>e.preventDefault();
 
   $("#competitionTeamForm").onsubmit=async e=>{
     e.preventDefault();
