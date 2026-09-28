@@ -156,10 +156,11 @@
           <form id="rosterImportForm" class="admin-form">
             <select id="rosterImportCompetition" required><option value="">Selecione a competição</option></select>
             <select id="rosterImportClub" required disabled><option value="">Selecione o clube</option></select>
+            <label>Chave da API-Football<input id="footballApiKey" type="password" placeholder="Cole sua chave da API-Football" autocomplete="off" required></label>
             <button class="primary" type="submit">Buscar elenco</button>
           </form>
+          <div id="rosterImportMessage" class="admin-message hidden"></div>
           <div class="import-source-note"><strong>Fonte de dados</strong><span>Este importador usa a API-Football para buscar o elenco atual do clube. A API disponibiliza o endpoint de elenco atual por equipe.</span></div>
-          <label>Chave da API-Football<input id="footballApiKey" type="password" placeholder="Cole sua chave da API-Football" autocomplete="off"></label>
         </div>
         <div class="card">
           <h3>📋 Como funciona</h3>
