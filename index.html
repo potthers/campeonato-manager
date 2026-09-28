@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Global Football Sim</title>
-<link rel="stylesheet" href="style.css?v=0.1.9">
+<link rel="stylesheet" href="style.css?v=0.2.0">
 </head>
 <body>
 
@@ -45,7 +45,7 @@
     <button class="nav active" data-view="home">🏠 Campeonatos</button>
     <button class="nav" data-view="create">＋ Criar campeonato</button>
     <button class="nav hidden" id="adminNav" data-view="admin">⚙️ Administração</button>
-    <div class="side-note">Versão 0.1.9<br>Conta conectada ao Supabase.</div>
+    <div class="side-note">Versão 0.2.0<br>Conta conectada ao Supabase.</div>
   </aside>
 
   <main>
@@ -156,14 +156,20 @@
           <form id="rosterImportForm" class="admin-form">
             <select id="rosterImportCompetition" required><option value="">Selecione a competição</option></select>
             <select id="rosterImportClub" required disabled><option value="">Selecione o clube</option></select>
-            <button class="primary" type="submit">Continuar</button>
+            <button class="primary" type="submit">Buscar elenco</button>
           </form>
-          <div class="import-source-note"><strong>Fonte de dados</strong><span>O importador ficará preparado para uma fonte de dados autorizada. Não será feita coleta automática por scraping de sites que proíbam esse uso.</span></div>
+          <div class="import-source-note"><strong>Fonte de dados</strong><span>Este importador usa a API-Football para buscar o elenco atual do clube. A API disponibiliza o endpoint de elenco atual por equipe.</span></div>
+          <label>Chave da API-Football<input id="footballApiKey" type="password" placeholder="Cole sua chave da API-Football" autocomplete="off"></label>
         </div>
         <div class="card">
-          <h3>📋 Próximo passo</h3>
-          <div class="import-steps"><div><b>1</b><span>Escolher competição e clube</span></div><div><b>2</b><span>Buscar ou inserir os jogadores</span></div><div><b>3</b><span>Revisar posições e atributos</span></div><div><b>4</b><span>Salvar o elenco no clube</span></div></div>
+          <h3>📋 Como funciona</h3>
+          <div class="import-steps"><div><b>1</b><span>Escolher competição e clube</span></div><div><b>2</b><span>Buscar o elenco atual pela API</span></div><div><b>3</b><span>Revisar jogadores, posições e atributos</span></div><div><b>4</b><span>Importar o elenco para o clube</span></div></div>
         </div>
+      </div>
+      <div id="rosterImportResult" class="card hidden roster-import-result">
+        <div class="toolbar"><div><h3>👥 Elenco encontrado</h3><div class="muted" id="rosterImportResultMeta"></div></div><button class="primary" type="button" id="saveImportedRoster">💾 Importar elenco</button></div>
+        <div class="table-wrap"><table><thead><tr><th>Jogador</th><th>Posição</th><th>Nº</th><th>OVR</th><th>POT</th></tr></thead><tbody id="rosterImportRows"></tbody></table></div>
+      </div>
       </div>
     </section>
 
@@ -178,6 +184,6 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="app.js?v=0.1.9"></script>
+<script src="app.js?v=0.2.0"></script>
 </body>
 </html>
