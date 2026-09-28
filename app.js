@@ -9,6 +9,7 @@ catch(e){db={championships:[]};localStorage.removeItem(KEY)}
 let currentId=null;
 let currentAdminClubId=null;
 let adminCompetitions=[];
+const CONTINENTS=["África","América do Norte","América do Sul","Ásia","Europa","Oceania","Outros"];
 
 const $=s=>document.querySelector(s);
 const save=()=>localStorage.setItem(KEY,JSON.stringify(db));
@@ -93,7 +94,7 @@ async function refreshAdmin(){
     supabaseClient.from("competition_clubs").select("club_id, competition_id, competitions(id,name,country_id,countries(name))")
   ]);
   if(countries.error||competitions.error||clubs.error||memberships.error){
-    adminMessage("Não foi possível carregar os dados administrativos. Verifique se a tabela competition_clubs já foi criada.","error");
+    adminMessage("Não foi possível carregar os dados administrativos. Verifique se a tabela competition_clubs já foi criada e se a tabela countries possui continent e flag.","error");
     return;
   }
   const cs=countries.data||[];
@@ -103,7 +104,19 @@ async function refreshAdmin(){
   adminCompetitions=comps;
   const linkByClub={};
   links.forEach(x=>linkByClub[x.club_id]=x);
-  $("#countriesList").innerHTML=cs.length?cs.map(x=>'<div class="admin-item"><div class="admin-item-main"><div class="admin-item-name">'+esc(x.name)+'</div><div class="admin-item-meta">'+esc(x.code||"Sem código")+'</div></div><button class="admin-delete" data-delete-country="'+x.id+'">Excluir</button></div>').join(""):'<div class="empty-small">Nenhum país cadastrado.</div>';
+
+  const grouped={};
+  cs.forEach(x=>{
+    const continent=x.continent||"Outros";
+    (grouped[continent]??=[]).push(x);
+  });
+  const continentOrder=[...CONTINENTS,...Object.keys(grouped).filter(x=>!CONTINENTS.includes(x))];
+  const countryGroups=continentOrder.filter(x=>grouped[x]?.length).map(cont=>{
+    const items=grouped[cont].sort((a,b)=>a.name.localeCompare(b.name,"pt-BR"));
+    return '<div class="continent-group"><div class="continent-title"><span>'+esc(cont)+'</span><small>'+items.length+' país(es)</small></div>'+items.map(x=>'<div class="admin-item"><div class="admin-item-main country-main"><span class="country-flag">'+esc(x.flag||"🏳️")+'</span><div><div class="admin-item-name">'+esc(x.name)+'</div><div class="admin-item-meta">'+esc(x.code||"Sem código")+'</div></div></div><button class="admin-delete" data-delete-country="'+x.id+'">Excluir</button></div>').join("")+'</div>';
+  }).join("");
+  $("#countriesList").innerHTML=countryGroups||'<div class="empty-small">Nenhum país cadastrado.</div>';
+
   $("#competitionsList").innerHTML=comps.length?comps.map(x=>'<div class="admin-item"><div class="admin-item-main"><div class="admin-item-name">'+esc(x.name)+'</div><div class="admin-item-meta">'+esc(x.countries?.name||"Sem país")+' · Divisão '+x.division+'</div></div><button class="admin-delete" data-delete-competition="'+x.id+'">Excluir</button></div>').join(""):'<div class="empty-small">Nenhuma competição cadastrada.</div>';
   $("#clubsList").innerHTML=cls.length?cls.map(x=>{
     const link=linkByClub[x.id],comp=link?.competitions;
@@ -116,7 +129,6 @@ async function refreshAdmin(){
   document.querySelectorAll("[data-delete-club]").forEach(b=>b.onclick=()=>deleteAdmin("clubs",b.dataset.deleteClub));
   document.querySelectorAll("[data-open-club]").forEach(b=>b.onclick=()=>openAdminClub(Number(b.dataset.openClub)));
 }
-
 async function openAdminClub(id){
   currentAdminClubId=id;
   const [{data:club,error:clubError},{data:link,error:linkError},{data:squad,error:squadError}]=await Promise.all([
@@ -214,8 +226,15 @@ function setupAdminForms(){
     e.preventDefault();
     const name=$("#countryName").value.trim();
     if(!name)return;
-    await addAdminRow("countries",{name,code:$("#countryCode").value.trim().toUpperCase()||null});
-    $("#countryName").value="";$("#countryCode").value="";
+    const continent=$("#countryContinent").value;
+    if(!continent){adminMessage("Selecione o continente do país.","error");return;}
+    await addAdminRow("countries",{
+      name,
+      code:$("#countryCode").value.trim().toUpperCase()||null,
+      flag:$("#countryFlag").value.trim()||"🏳️",
+      continent
+    });
+    $("#countryName").value="";$("#countryCode").value="";$("#countryFlag").value="";$("#countryContinent").value="";
   };
   $("#competitionForm").onsubmit=async e=>{
     e.preventDefault();
