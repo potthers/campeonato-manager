@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Global Football Sim</title>
-<link rel="stylesheet" href="style.css?v=0.1.8">
+<link rel="stylesheet" href="style.css?v=0.1.9">
 </head>
 <body>
 
@@ -45,7 +45,7 @@
     <button class="nav active" data-view="home">🏠 Campeonatos</button>
     <button class="nav" data-view="create">＋ Criar campeonato</button>
     <button class="nav hidden" id="adminNav" data-view="admin">⚙️ Administração</button>
-    <div class="side-note">Versão 0.1.8<br>Conta conectada ao Supabase.</div>
+    <div class="side-note">Versão 0.1.9<br>Conta conectada ao Supabase.</div>
   </aside>
 
   <main>
@@ -86,6 +86,7 @@
       <div class="admin-grid">
         <div class="card admin-card"><h3>🌎 Países</h3><form id="countryForm" class="admin-form"><input id="countryName" placeholder="Nome do país" required><div class="admin-form-row"><input id="countryCode" placeholder="Código (ex.: BR)" maxlength="10"><input id="countryFlag" placeholder="Bandeira (ex.: 🇧🇷)" maxlength="8"></div><select id="countryContinent" required><option value="">Continente</option><option>África</option><option>América do Norte</option><option>América do Sul</option><option>Ásia</option><option>Europa</option><option>Oceania</option></select><button class="primary" type="submit">Adicionar país</button></form><div id="countriesList" class="admin-list"></div></div>
         <div class="card admin-card"><h3>⚽ Clubes</h3><p class="muted">Escolha a competição e cadastre o clube. Depois entre nele para montar o elenco.</p><form id="clubForm" class="admin-form"><input id="clubName" placeholder="Nome do clube" required><input id="clubShortName" placeholder="Nome curto"><select id="clubCompetition" required></select><input id="clubStrength" type="number" min="1" max="100" value="50" placeholder="Força"><input id="clubBudget" type="number" min="0" value="0" placeholder="Orçamento"><button class="primary" type="submit">Adicionar clube</button></form><div id="clubsList" class="admin-list"></div></div>
+        <div class="card admin-card"><h3>👥 Elencos</h3><p class="muted">Importe e atualize os elencos dos clubes por um painel próprio de administração.</p><div class="admin-import-card"><div class="admin-import-icon">👥</div><div><strong>Importar elenco</strong><div class="muted">Selecione o clube e revise os jogadores antes de salvar.</div></div></div><button class="primary admin-full-button" type="button" id="openRosterImporter">Abrir importador de elenco</button></div>
         <div class="card admin-card"><h3>ℹ️ Como funciona</h3><p class="muted">O jogador agora é cadastrado diretamente dentro do clube. Assim o caminho fica:</p><div class="hierarchy"><div>🌎 País</div><span>↓</span><div>🏆 Competição</div><span>↓</span><div>⚽ Clube</div><span>↓</span><div>👥 Elenco</div></div></div>
       </div>
     </section>
@@ -145,6 +146,27 @@
       </div>
     </section>
 
+
+    <section id="rosterImporterView" class="view hidden">
+      <div class="champ-head"><button class="back" id="backAdminFromRosterImporter">← Administração</button><div><div class="eyebrow">ADMINISTRAÇÃO · ELENCOS</div><h2>Importar elenco</h2><div class="muted">Prepare e revise o elenco antes de gravá-lo no clube.</div></div></div>
+      <div class="roster-import-grid">
+        <div class="card">
+          <h3>⚽ Clube</h3>
+          <p class="muted">Escolha o clube que receberá o elenco.</p>
+          <form id="rosterImportForm" class="admin-form">
+            <select id="rosterImportCompetition" required><option value="">Selecione a competição</option></select>
+            <select id="rosterImportClub" required disabled><option value="">Selecione o clube</option></select>
+            <button class="primary" type="submit">Continuar</button>
+          </form>
+          <div class="import-source-note"><strong>Fonte de dados</strong><span>O importador ficará preparado para uma fonte de dados autorizada. Não será feita coleta automática por scraping de sites que proíbam esse uso.</span></div>
+        </div>
+        <div class="card">
+          <h3>📋 Próximo passo</h3>
+          <div class="import-steps"><div><b>1</b><span>Escolher competição e clube</span></div><div><b>2</b><span>Buscar ou inserir os jogadores</span></div><div><b>3</b><span>Revisar posições e atributos</span></div><div><b>4</b><span>Salvar o elenco no clube</span></div></div>
+        </div>
+      </div>
+    </section>
+
     <section id="clubAdminView" class="view hidden">
       <div class="champ-head"><button class="back" id="backAdmin">← Administração</button><div><div class="eyebrow" id="clubAdminEyebrow"></div><h2 id="clubAdminName"></h2><div class="muted" id="clubAdminMeta"></div></div></div>
       <div class="club-admin-grid">
@@ -156,6 +178,6 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="app.js?v=0.1.8"></script>
+<script src="app.js?v=0.1.9"></script>
 </body>
 </html>
