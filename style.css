@@ -30,3 +30,8 @@
 .continent-countries .country-open{border-bottom:1px solid #edf0f2}
 .continent-countries .country-open:last-child{border-bottom:0}
 @media(max-width:950px){.country-admin-grid{grid-template-columns:1fr}}
+
+#countryCompetitionForm{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+#countryCompetitionForm button{grid-column:1/-1;justify-self:start}
+#countryCompetitionForm input,#countryCompetitionForm select{width:100%}
+@media(max-width:650px){#countryCompetitionForm{grid-template-columns:1fr}}
