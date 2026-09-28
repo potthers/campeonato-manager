@@ -267,13 +267,6 @@ function setupAdminForms(){
     });
     $("#countryName").value="";$("#countryCode").value="";$("#countryFlag").value="";$("#countryContinent").value="";
   };
-  $("#competitionForm").onsubmit=async e=>{
-    e.preventDefault();
-    const name=$("#competitionName").value.trim(),country=$("#competitionCountry").value;
-    if(!country){adminMessage("Selecione o país da competição.","error");return;}
-    const ok=await addAdminRow("competitions",{name,country_id:Number(country),division:Number($("#competitionDivision").value)||1});
-    if(ok)$("#competitionName").value="";
-  };
   $("#clubForm").onsubmit=async e=>{
     e.preventDefault();
     const name=$("#clubName").value.trim(),competitionId=Number($("#clubCompetition").value);
