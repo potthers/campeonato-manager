@@ -44,6 +44,7 @@
     <div class="brand">⚽ <span>Global Football<br>Sim</span></div>
     <button class="nav active" data-view="home">🏠 Campeonatos</button>
     <button class="nav" data-view="create">＋ Criar campeonato</button>
+    <button class="nav hidden" id="adminNav" data-view="admin">⚙️ Administração</button>
     <div class="side-note">Versão 0.1.0<br>Conta conectada ao Supabase.</div>
   </aside>
 
@@ -77,6 +78,17 @@
       <div id="tableTab" class="tab-content"><div class="toolbar"><div class="muted" id="tableInfo"></div><button class="primary" id="goMatches">Lançar resultado</button></div><div class="table-wrap"><table><thead><tr><th>#</th><th>Time</th><th>PTS</th><th>J</th><th>V</th><th>E</th><th>D</th><th>GP</th><th>GC</th><th>SG</th></tr></thead><tbody id="standings"></tbody></table></div></div>
       <div id="matchesTab" class="tab-content hidden"><div class="toolbar"><div class="muted">Digite os placares e salve.</div><button class="primary" id="saveResults">Salvar resultados</button></div><div id="rounds"></div></div>
       <div id="teamsTab" class="tab-content hidden"><div class="toolbar"><div><strong id="teamCount"></strong> cadastrados</div><button class="primary" id="generate">Gerar calendário</button></div><div class="add-team"><input id="teamName" placeholder="Nome do time"><button class="secondary" id="addTeam">Adicionar</button></div><div id="teamList" class="team-list"></div></div>
+    </section>
+
+    <section id="adminView" class="view hidden">
+      <div class="admin-head"><div><div class="eyebrow">MUNDO COMPARTILHADO</div><h2>Administração</h2><p class="muted">Cadastre os dados oficiais que serão usados por todas as carreiras.</p></div></div>
+      <div id="adminMessage" class="admin-message hidden"></div>
+      <div class="admin-grid">
+        <div class="card admin-card"><h3>🌎 Países</h3><form id="countryForm" class="admin-form"><input id="countryName" placeholder="Nome do país" required><input id="countryCode" placeholder="Código (ex.: BR)" maxlength="3"><button class="primary" type="submit">Adicionar país</button></form><div id="countriesList" class="admin-list"></div></div>
+        <div class="card admin-card"><h3>🏆 Competições</h3><form id="competitionForm" class="admin-form"><input id="competitionName" placeholder="Nome da competição" required><select id="competitionCountry"></select><input id="competitionDivision" type="number" min="1" value="1" placeholder="Divisão"><button class="primary" type="submit">Adicionar competição</button></form><div id="competitionsList" class="admin-list"></div></div>
+        <div class="card admin-card"><h3>⚽ Clubes</h3><form id="clubForm" class="admin-form"><input id="clubName" placeholder="Nome do clube" required><input id="clubShortName" placeholder="Nome curto"><select id="clubCountry"></select><input id="clubStrength" type="number" min="1" max="100" value="50" placeholder="Força"><input id="clubBudget" type="number" min="0" value="0" placeholder="Orçamento"><button class="primary" type="submit">Adicionar clube</button></form><div id="clubsList" class="admin-list"></div></div>
+        <div class="card admin-card"><h3>👤 Jogadores</h3><form id="playerForm" class="admin-form"><input id="playerName" placeholder="Nome do jogador" required><select id="playerNationality"></select><select id="playerPosition"><option value="GK">Goleiro</option><option value="DEF">Defensor</option><option value="MID" selected>Meio-campista</option><option value="FWD">Atacante</option></select><input id="playerOverall" type="number" min="1" max="100" value="50" placeholder="Overall"><input id="playerPotential" type="number" min="1" max="100" value="50" placeholder="Potencial"><button class="primary" type="submit">Adicionar jogador</button></form><div id="playersList" class="admin-list"></div></div>
+      </div>
     </section>
   </main>
 </div>
