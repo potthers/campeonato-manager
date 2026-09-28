@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Campeonato Manager</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar">
+    <div class="brand">⚽ <span>Campeonato<br>Manager</span></div>
+    <button class="nav active" data-view="home">🏠 Campeonatos</button>
+    <button class="nav" data-view="create">＋ Criar campeonato</button>
+    <div class="side-note">Versão 1.0<br>Dados salvos neste navegador.</div>
+  </aside>
+  <main>
+    <header><div><div class="eyebrow">PAINEL ADMINISTRATIVO</div><h1 id="pageTitle">Meus campeonatos</h1></div><button class="primary" id="headerCreate">＋ Novo campeonato</button></header>
+    <section id="homeView" class="view">
+      <div id="empty" class="empty"><div class="empty-icon">🏆</div><h2>Nenhum campeonato criado</h2><p>Crie sua primeira competição para começar a cadastrar times e resultados.</p><button class="primary" id="emptyCreate">Criar campeonato</button></div>
+      <div id="championshipGrid" class="grid"></div>
+    </section>
+    <section id="createView" class="view hidden"><div class="card form-card"><h2>Novo campeonato</h2><p class="muted">Configure a competição. Depois você poderá cadastrar os clubes e gerar as rodadas.</p>
+      <label>Nome do campeonato<input id="name" placeholder="Ex.: Campeonato Brasileiro"></label>
+      <label>Divisão (opcional)<input id="division" placeholder="Ex.: Série A"></label>
+      <label>Formato<select id="format"><option value="double">Turno e returno</option><option value="single">Turno único</option></select></label>
+      <div class="form-actions"><button class="secondary" id="cancelCreate">Cancelar</button><button class="primary" id="saveChampionship">Criar campeonato</button></div>
+    </div></section>
+    <section id="champView" class="view hidden">
+      <div class="champ-head"><button class="back" id="backHome">← Campeonatos</button><div><div class="eyebrow" id="champEyebrow"></div><h2 id="champName"></h2></div><button class="danger ghost" id="deleteChamp">Excluir</button></div>
+      <div class="tabs"><button class="tab active" data-tab="table">Classificação</button><button class="tab" data-tab="matches">Resultados</button><button class="tab" data-tab="teams">Times</button></div>
+      <div id="tableTab" class="tab-content"><div class="toolbar"><div class="muted" id="tableInfo"></div><button class="primary" id="goMatches">Lançar resultado</button></div><div class="table-wrap"><table><thead><tr><th>#</th><th>Time</th><th>PTS</th><th>J</th><th>V</th><th>E</th><th>D</th><th>GP</th><th>GC</th><th>SG</th></tr></thead><tbody id="standings"></tbody></table></div></div>
+      <div id="matchesTab" class="tab-content hidden"><div class="toolbar"><div class="muted">Digite os placares e salve.</div><button class="primary" id="saveResults">Salvar resultados</button></div><div id="rounds"></div></div>
+      <div id="teamsTab" class="tab-content hidden"><div class="toolbar"><div><strong id="teamCount"></strong> cadastrados</div><button class="primary" id="generate">Gerar calendário</button></div><div class="add-team"><input id="teamName" placeholder="Nome do time"><button class="secondary" id="addTeam">Adicionar</button></div><div id="teamList" class="team-list"></div></div>
+    </section>
+  </main>
+</div>
+<script src="app.js"></script>
+</body>
+</html>
