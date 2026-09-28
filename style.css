@@ -47,3 +47,5 @@
 .competition-team-buttons button{flex:1;min-width:150px}
 .secondary{border:1px solid var(--border,#d7dee8);background:#fff;color:#1f2937}
 .secondary:hover{background:#f3f6fa}
+
+.admin-import-card{display:flex;align-items:center;gap:12px;padding:13px;border:1px solid #e2e7eb;border-radius:9px;background:#fafbfc;margin:12px 0}.admin-import-icon{font-size:24px}.admin-full-button{width:100%}.roster-import-grid{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(300px,1fr);gap:18px}.roster-import-grid h3{margin-top:0}.import-source-note{margin-top:16px;padding:12px;border:1px solid #e2e7eb;border-radius:9px;background:#fafbfc;display:grid;gap:5px;font-size:12px;line-height:1.5}.import-source-note span{color:#71808d}.import-steps{display:flex;flex-direction:column;gap:12px}.import-steps div{display:flex;align-items:center;gap:10px;padding:11px;border:1px solid #e2e7eb;border-radius:9px;background:#fafbfc}.import-steps b{width:28px;height:28px;display:grid;place-items:center;border-radius:50%;background:#eef4ff;color:#1769e0}.import-steps span{font-size:13px}@media(max-width:950px){.roster-import-grid{grid-template-columns:1fr}}
