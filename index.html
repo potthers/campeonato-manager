@@ -122,6 +122,26 @@
       </div>
     </section>
 
+    <section id="competitionAdminView" class="view hidden">
+      <div class="champ-head"><button class="back" id="backCountryFromCompetition">← País</button><div><div class="eyebrow" id="competitionAdminEyebrow"></div><h2 id="competitionAdminName"></h2><div class="muted" id="competitionAdminMeta"></div></div></div>
+      <div class="competition-teams-grid">
+        <div class="card">
+          <h3>⚽ Adicionar time</h3>
+          <p class="muted">Escolha um clube já cadastrado neste país para participar da competição.</p>
+          <form id="competitionTeamForm" class="admin-form">
+            <select id="competitionTeamClub" required>
+              <option value="">Selecione o time</option>
+            </select>
+            <button class="primary" type="submit">Adicionar time</button>
+          </form>
+        </div>
+        <div class="card">
+          <div class="toolbar"><div><h3>⚽ Times da competição</h3><div class="muted" id="competitionTeamsCount"></div></div></div>
+          <div id="competitionTeamsList" class="admin-list"></div>
+        </div>
+      </div>
+    </section>
+
     <section id="clubAdminView" class="view hidden">
       <div class="champ-head"><button class="back" id="backAdmin">← Administração</button><div><div class="eyebrow" id="clubAdminEyebrow"></div><h2 id="clubAdminName"></h2><div class="muted" id="clubAdminMeta"></div></div></div>
       <div class="club-admin-grid">
