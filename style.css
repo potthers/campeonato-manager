@@ -59,3 +59,5 @@
 #rosterCsvFile{padding:9px;background:#fff}
 .roster-number,.roster-ovr,.roster-pot{width:70px;padding:7px;border:1px solid #ccd4db;border-radius:7px}
 .roster-pos{min-width:78px;padding:7px;border:1px solid #ccd4db;border-radius:7px;background:#fff;font-weight:700}
+
+.club-navigation-note{margin-top:12px;padding:11px 12px;border:1px solid #e2e7eb;border-radius:9px;background:#f7f9fb;color:#596673;font-size:12px;line-height:1.45}
