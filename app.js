@@ -159,18 +159,20 @@ async function searchRosterFromApi(){
   const form=$("#rosterImportForm");
   form.classList.add("import-loading");
   $("#rosterImportResult").classList.add("hidden");
-  rosterImportMessage("Testando a chave e buscando '"+clubName+"' na API-Football...","info");
+  rosterImportMessage("Etapa 2/5: testando a chave da API-Football...","info");
   try{
+    rosterImportMessage("Etapa 3/5: procurando '"+clubName+"' na API-Football...","info");
     const team=await findApiFootballTeam(clubName,key);
     if(!team?.id)throw new Error("A API encontrou um resultado sem ID de equipe.");
+    rosterImportMessage("Etapa 4/5: clube encontrado — "+(team.name||clubName)+" (ID "+team.id+"). Buscando elenco...","info");
     const players=await fetchApiFootballSquad(team.id,key);
     if(!players.length)throw new Error("A API encontrou o clube, mas não retornou jogadores no elenco atual.");
     rosterImportApiKey=key;
     rosterPreview=players.map(p=>({apiId:p.id,name:p.name||"Jogador",position:mapApiPosition(p.position),number:p.number,overall:50,potential:50,nationality:p.nationality||null,age:p.age||null,photo:p.photo||null}));
     renderRosterPreview();
-    rosterImportMessage(rosterPreview.length+" jogador(es) encontrados para "+(team.name||clubName)+".","success");
+    rosterImportMessage("Etapa 5/5: "+rosterPreview.length+" jogador(es) encontrados para "+(team.name||clubName)+".","success");
   }catch(error){
-    rosterImportMessage("Não foi possível buscar o elenco: "+(error?.message||String(error)),"error");
+    rosterImportMessage("Falha durante a importação: "+(error?.message||String(error)),"error");
   }finally{
     form.classList.remove("import-loading");
   }
@@ -576,8 +578,9 @@ function setupAdminForms(){
   $("#rosterImportCompetition").onchange=e=>loadRosterImportClubs(e.target.value);
   $("#backAdminFromRosterImporter").onclick=async()=>{show("admin");$("#pageTitle").textContent="Meus campeonatos";await refreshAdmin();};
   $("#searchRosterBtn").onclick=async()=>{
+    rosterImportMessage("Clique detectado. Iniciando busca do elenco...","info");
     const clubId=Number($("#rosterImportClub").value);
-    if(!clubId){rosterImportMessage("Selecione o clube.","error");return;}
+    if(!clubId){rosterImportMessage("Etapa 1/5: selecione o clube.","error");return;}
     currentAdminClubId=clubId;
     await searchRosterFromApi();
   };
@@ -622,6 +625,25 @@ document.addEventListener("click",e=>{
   if(b){e.preventDefault();openAdminCountry(Number(b.dataset.openCountry));}
 });
 
+window.addEventListener("error",e=>{
+  console.error(e.error||e.message);
+  const el=$("#rosterImportMessage");
+  if(el&&document.querySelector("#rosterImporterView:not(.hidden)")){
+    el.textContent="Erro JavaScript: "+(e.message||"erro desconhecido");
+    el.className="admin-message error";
+    el.classList.remove("hidden");
+  }
+});
+window.addEventListener("unhandledrejection",e=>{
+  console.error(e.reason);
+  const el=$("#rosterImportMessage");
+  if(el&&document.querySelector("#rosterImporterView:not(.hidden)")){
+    el.textContent="Erro JavaScript: "+(e.reason?.message||String(e.reason||"promessa rejeitada"));
+    el.className="admin-message error";
+    el.classList.remove("hidden");
+  }
+});
+
 document.addEventListener("DOMContentLoaded",async()=>{
   showAuthMode("login");
 
@@ -643,7 +665,17 @@ document.addEventListener("DOMContentLoaded",async()=>{
   };
 
   $("#logoutBtn").onclick=async()=>{await supabaseClient.auth.signOut();currentId=null;showAuthMode("login");showAuth();};
-  setupAdminForms();
+  try{
+    setupAdminForms();
+  }catch(error){
+    console.error("Erro ao configurar o painel administrativo:",error);
+    const el=$("#rosterImportMessage");
+    if(el){
+      el.textContent="Erro JavaScript ao configurar o painel: "+(error?.message||String(error));
+      el.className="admin-message error";
+      el.classList.remove("hidden");
+    }
+  }
 
   supabaseClient.auth.onAuthStateChange((event,session)=>{
     if(session) showApp(session.user);
