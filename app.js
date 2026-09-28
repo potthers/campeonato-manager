@@ -367,6 +367,154 @@ async function saveImportedRoster(){
   }
 }
 
+async function importAllCompetitionRosters(){
+  const competitionId=Number($("#rosterImportCompetition").value);
+  const key=$("#footballApiKey").value.trim();
+  if(!competitionId){rosterImportMessage("Selecione a competição.","error");return;}
+  if(!key){rosterImportMessage("Cole a chave da API-Football para importar os elencos.","error");return;}
+
+  const button=$("#importAllCompetitionRosters");
+  button.disabled=true;
+  $("#saveImportedRoster").disabled=true;
+  $("#rosterImportResult").classList.add("hidden");
+
+  try{
+    const {data:links,error}=await supabaseClient
+      .from("competition_clubs")
+      .select("club_id,clubs(id,name,short_name)")
+      .eq("competition_id",competitionId)
+      .order("id");
+
+    if(error)throw new Error("Não foi possível carregar os clubes da competição: "+error.message);
+    const clubs=(links||[]).map(x=>x.clubs).filter(Boolean);
+
+    if(!clubs.length)throw new Error("Essa competição não possui clubes cadastrados.");
+
+    let success=0,failed=0,totalPlayers=0;
+    const failures=[];
+
+    rosterImportMessage("Importação em massa iniciada: "+clubs.length+" clube(s) na fila.","info");
+
+    for(let i=0;i<clubs.length;i++){
+      const club=clubs[i];
+      const clubName=club.name||"Clube";
+      const progress=i+1;
+      try{
+        rosterImportMessage("Importando "+progress+"/"+clubs.length+": "+clubName+" — procurando clube na API...","info");
+
+        const team=await findApiFootballTeam(clubName,key);
+        if(!team?.id)throw new Error("Clube não encontrado na API-Football.");
+
+        rosterImportMessage("Importando "+progress+"/"+clubs.length+": "+clubName+" — buscando elenco...","info");
+        const players=await fetchApiFootballSquad(team.id,key);
+        if(!players.length)throw new Error("A API não retornou jogadores.");
+
+        rosterImportMessage("Importando "+progress+"/"+clubs.length+": "+clubName+" — calculando OVR/POT...","info");
+        let detailedPlayers=[];
+        try{
+          detailedPlayers=await fetchApiFootballPlayerStats(team.id,key,getCurrentSeason());
+        }catch(statsError){
+          console.warn("Estatísticas indisponíveis para "+clubName+"; usando fallback.",statsError);
+        }
+
+        let roster=players.map(p=>({
+          apiId:p.id,
+          name:p.name||"Jogador",
+          position:mapApiPosition(p.position),
+          number:p.number,
+          overall:50,
+          potential:50,
+          nationality:p.nationality||null,
+          age:p.age||null,
+          photo:p.photo||null
+        }));
+        roster=applyAutomaticRatings(roster,detailedPlayers);
+
+        const {data:existingLinks,error:existingError}=await supabaseClient
+          .from("club_players")
+          .select("id,player_id,players(id,name)")
+          .eq("club_id",club.id);
+
+        if(existingError)throw new Error(existingError.message);
+
+        const existingByName={};
+        (existingLinks||[]).forEach(x=>existingByName[normalizeName(x.players?.name)]=x);
+        const currentNames=new Set(roster.map(x=>normalizeName(x.name)));
+
+        for(const link of (existingLinks||[])){
+          if(!currentNames.has(normalizeName(link.players?.name))){
+            const {error:removeError}=await supabaseClient.from("club_players").delete().eq("id",link.id);
+            if(removeError)throw new Error(removeError.message);
+          }
+        }
+
+        let added=0,updated=0;
+        for(const p of roster){
+          const existing=existingByName[normalizeName(p.name)];
+          if(existing){
+            const {error:updateError}=await supabaseClient
+              .from("players")
+              .update({position:p.position,overall:p.overall,potential:p.potential})
+              .eq("id",existing.player_id);
+            if(updateError)throw new Error(updateError.message);
+
+            const {error:numberError}=await supabaseClient
+              .from("club_players")
+              .update({shirt_number:p.number||null})
+              .eq("id",existing.id);
+            if(numberError)throw new Error(numberError.message);
+
+            updated++;
+          }else{
+            const {data:player,error:playerError}=await supabaseClient
+              .from("players")
+              .insert({name:p.name,position:p.position,overall:p.overall,potential:p.potential})
+              .select("id")
+              .single();
+            if(playerError)throw new Error(playerError.message);
+
+            const {error:linkError}=await supabaseClient
+              .from("club_players")
+              .insert({club_id:club.id,player_id:player.id,shirt_number:p.number||null});
+
+            if(linkError){
+              await supabaseClient.from("players").delete().eq("id",player.id);
+              throw new Error(linkError.message);
+            }
+            added++;
+          }
+        }
+
+        success++;
+        totalPlayers+=roster.length;
+        rosterImportMessage("Importado "+progress+"/"+clubs.length+": "+clubName+" — "+roster.length+" jogadores ("+added+" novos, "+updated+" atualizados).","success");
+      }catch(error){
+        failed++;
+        failures.push(clubName+": "+(error?.message||String(error)));
+        rosterImportMessage("Falha em "+progress+"/"+clubs.length+": "+clubName+" — "+(error?.message||String(error)),"error");
+      }
+    }
+
+    const summary=success+" de "+clubs.length+" clube(s) importados, "+totalPlayers+" jogador(es) processados.";
+    if(failed){
+      rosterImportMessage(summary+" "+failed+" clube(s) falharam. Veja o resumo abaixo.","error");
+    }else{
+      rosterImportMessage(summary+" Todos os elencos foram atualizados.","success");
+    }
+
+    const result=$("#rosterImportResult");
+    result.classList.remove("hidden");
+    $("#rosterImportRows").innerHTML="";
+    $("#rosterImportResultMeta").innerHTML=
+      "<strong>Importação em massa concluída.</strong><br>"+
+      esc(summary)+
+      (failures.length?"<br><br><strong>Falhas:</strong><br>"+failures.map(esc).join("<br>"):"");
+  }finally{
+    button.disabled=false;
+    $("#saveImportedRoster").disabled=false;
+  }
+}
+
 function adminMessage(message,type="success"){
   const el=$("#adminMessage");
   if(!el)return;
@@ -728,6 +876,7 @@ function setupAdminForms(){
   };
   $("#rosterImportForm").onsubmit=e=>e.preventDefault();
   $("#saveImportedRoster").onclick=saveImportedRoster;
+  $("#importAllCompetitionRosters").onclick=importAllCompetitionRosters;
 
   $("#competitionTeamForm").onsubmit=async e=>{
     e.preventDefault();
