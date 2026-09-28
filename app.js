@@ -463,10 +463,7 @@ async function refreshAdmin(){
   }).join("");
   $("#countriesList").innerHTML=countryGroups||'<div class="empty-small">Nenhum país cadastrado.</div>';
 
-  $("#clubsList").innerHTML=cls.length?cls.map(x=>{
-    const link=linkByClub[x.id],comp=link?.competitions;
-    return '<div class="admin-item"><div class="admin-item-main"><div class="admin-item-name">'+esc(x.name)+'</div><div class="admin-item-meta">'+esc(comp?.countries?.name||"Sem país")+' · '+esc(comp?.name||"Sem competição")+' · Força '+x.strength+'</div></div><div class="admin-item-actions"><button class="club-open" data-open-club="'+x.id+'">Elenco</button><button class="admin-delete" data-delete-club="'+x.id+'">Excluir</button></div></div>';
-  }).join(""):'<div class="empty-small">Nenhum clube cadastrado.</div>';
+  $("#clubsList").innerHTML="";
   document.querySelectorAll("[data-open-country]").forEach(b=>b.onclick=()=>openAdminCountry(Number(b.dataset.openCountry)));
   document.querySelectorAll("[data-delete-club]").forEach(b=>b.onclick=()=>deleteAdmin("clubs",b.dataset.deleteClub));
   document.querySelectorAll("[data-open-club]").forEach(b=>b.onclick=()=>openAdminClub(Number(b.dataset.openClub)));
@@ -537,8 +534,9 @@ async function refreshCompetitionTeams(){
   $("#competitionTeamForm button[type='submit']").disabled=competitionFull;
   $("#addAllCompetitionTeams").disabled=competitionFull || available.length===0;
   $("#competitionTeamsCount").textContent=teams.length+" / "+comp.team_count+" times";
-  $("#competitionTeamsList").innerHTML=teams.length?teams.map(x=>'<div class="admin-item"><div class="admin-item-main"><div class="admin-item-name">⚽ '+esc(x.clubs?.name||"Time")+'</div><div class="admin-item-meta">Força '+(x.clubs?.strength??"-")+(x.clubs?.short_name?' · '+esc(x.clubs.short_name):"")+'</div></div><button class="admin-delete" data-remove-competition-team="'+x.id+'">Retirar</button></div>').join(""):'<div class="empty-small">Nenhum time cadastrado nesta competição.</div>';
+  $("#competitionTeamsList").innerHTML=teams.length?teams.map(x=>'<div class="admin-item"><div class="admin-item-main"><div class="admin-item-name">⚽ '+esc(x.clubs?.name||"Time")+'</div><div class="admin-item-meta">Força '+(x.clubs?.strength??"-")+(x.clubs?.short_name?' · '+esc(x.clubs.short_name):"")+'</div></div><div class="admin-item-actions"><button class="club-open" data-open-club="'+x.club_id+'">Elenco</button><button class="admin-delete" data-remove-competition-team="'+x.id+'">Retirar</button></div></div>').join(""):'<div class="empty-small">Nenhum time cadastrado nesta competição.</div>';
   document.querySelectorAll("[data-remove-competition-team]").forEach(b=>b.onclick=()=>removeCompetitionTeam(Number(b.dataset.removeCompetitionTeam)));
+  document.querySelectorAll("[data-open-club]").forEach(b=>b.onclick=()=>openAdminClub(Number(b.dataset.openClub)));
 }
 
 async function addAllCompetitionTeams(){
