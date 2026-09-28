@@ -113,7 +113,7 @@ async function refreshAdmin(){
   const continentOrder=[...CONTINENTS,...Object.keys(grouped).filter(x=>!CONTINENTS.includes(x))];
   const countryGroups=continentOrder.filter(x=>grouped[x]?.length).map(cont=>{
     const items=grouped[cont].sort((a,b)=>a.name.localeCompare(b.name,"pt-BR"));
-    return '<div class="continent-group"><div class="continent-title"><span>'+esc(cont)+'</span><small>'+items.length+' país(es)</small></div>'+items.map(x=>'<div class="admin-item"><div class="admin-item-main country-main"><span class="country-flag">'+esc(x.flag||"🏳️")+'</span><div><div class="admin-item-name">'+esc(x.name)+'</div><div class="admin-item-meta">'+esc(x.code||"Sem código")+'</div></div></div><button class="admin-delete" data-delete-country="'+x.id+'">Excluir</button></div>').join("")+'</div>';
+    return '<details class="continent-group"><summary class="continent-title"><span>🌍 '+esc(cont)+'</span><small>'+items.length+' país(es)</small></summary><div class="continent-countries">'+items.map(x=>'<div class="admin-item"><div class="admin-item-main country-main"><span class="country-flag">'+esc(x.flag||"🏳️")+'</span><div><div class="admin-item-name">'+esc(x.name)+'</div><div class="admin-item-meta">'+esc(x.code||"Sem código")+'</div></div></div><button class="admin-delete" data-delete-country="'+x.id+'">Excluir</button></div>').join("")+'</div></details>';
   }).join("");
   $("#countriesList").innerHTML=countryGroups||'<div class="empty-small">Nenhum país cadastrado.</div>';
 
